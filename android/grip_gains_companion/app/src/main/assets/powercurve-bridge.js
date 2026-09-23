@@ -1,7 +1,8 @@
 /* Powercurve DOM adapter. No React internals, credentials, API calls or timer patches. */
-(() => {
+(function install() {
   'use strict';
   if (location.origin !== 'https://powercurve.tantaluspath.com' || window !== window.top) return;
+  if (!document.body) { document.addEventListener('DOMContentLoaded', install, { once: true }); return; }
   if (window.PowercurveCompanion) { window.PowercurveCompanion.refresh(); return; }
   let previousPhase = '', generation = 0, lastEndedKey = null;
   const visible = el => !!el && el.getClientRects().length > 0;

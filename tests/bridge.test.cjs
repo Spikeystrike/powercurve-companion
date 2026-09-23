@@ -3,19 +3,20 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const source = fs.readFileSync('android/grip_gains_companion/app/src/main/assets/powercurve-bridge.js', 'utf8');
-function fixture(origin = 'https://powercurve.tantaluspath.com') {
+function fixture(origin = 'https://powercurve.tantaluspath.com', ready = true) {
   let phase = 'setup', rep = 1, clicks = 0, observers = 0, intervals = 0;
   const messages = [];
+  const readyCallbacks = [];
   const visible = { getClientRects: () => [1] };
   const button = { ...visible, disabled: false, get textContent() { return phase === 'rep' ? 'End rep' : 'Start'; }, click() { clicks++; phase = 'rest'; } };
   const face = { ...visible, classList: { contains: value => value === 'timerFace-' + phase }, querySelector: selector => ({ textContent: selector === 'strong' ? '4' : `Rep ${rep} of 3` }) };
   const window = { PowercurveNative: { postMessage: json => messages.push(JSON.parse(json)) } }; window.top = window;
   const context = vm.createContext({window, location: { origin, pathname: '/timer' },
-    document: { body: {}, hidden: false, querySelector: selector => selector.endsWith('.timerFace') ? face : button,
+    document: { body: ready ? {} : null, addEventListener: (_, callback) => readyCallbacks.push(callback), hidden: false, querySelector: selector => selector.endsWith('.timerFace') ? face : button,
       querySelectorAll: () => ['Weight|20 kg','Gripper|20 mm','Side|Left'].map(x => ({querySelector: s => ({textContent:x.split('|')[s === 'span' ? 0 : 1]})})) },
     MutationObserver: class { observe() { observers++; } }, setInterval: () => intervals++ });
   vm.runInContext(source, context);
-  return { window, context, messages, button, setPhase(p, r=rep) { phase=p; rep=r; }, get clicks() {return clicks;}, counts: () => [observers, intervals] };
+  return { window, context, messages, button, readyCallbacks, setPhase(p, r=rep) { phase=p; rep=r; }, get clicks() {return clicks;}, counts: () => [observers, intervals] };
 }
 test('strict origin guard', () => assert.equal(fixture('https://example.com').window.PowercurveCompanion, undefined));
 test('installer is idempotent across SPA changes', () => {
@@ -37,4 +38,13 @@ test('disabled, background, rest and complete timers cannot end a rep', () => {
   f.context.document.hidden=false;
   for (const p of ['countdown','rest','complete']) {f.setPhase(p); assert.equal(b.endRep(b.refresh().repKey),false);}
   assert.equal(f.clicks,0);
+});
+
+test('early WebView injection waits for the document body before installing', () => {
+  const f=fixture('https://powercurve.tantaluspath.com',false);
+  assert.equal(f.window.PowercurveCompanion,undefined);
+  assert.deepEqual(f.counts(),[0,0]);
+  f.context.document.body={}; f.readyCallbacks.forEach(callback=>callback());
+  assert.deepEqual(f.counts(),[1,1]);
+  f.setPhase('rep'); assert.equal(f.window.PowercurveCompanion.refresh().active,true);
 });
