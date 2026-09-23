@@ -1,0 +1,541 @@
+package app.grip_gains_companion.ui.screens
+
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothManager as AndroidBluetoothManager
+import android.content.Context
+import android.content.Intent
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.grip_gains_companion.data.PreferencesRepository
+import app.grip_gains_companion.model.ConnectionState
+import app.grip_gains_companion.model.ForceDevice
+import app.grip_gains_companion.service.ble.BluetoothManager
+import app.grip_gains_companion.service.web.WebViewBridge
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+import app.grip_gains_companion.ui.components.DataSourceCard
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    preferencesRepository: PreferencesRepository,
+    bluetoothManager: BluetoothManager,
+    webViewBridge: WebViewBridge,
+    currentManualWeight: Double,
+    onWeightChange: (Double) -> Unit,
+    onDismiss: () -> Unit,
+    onDisconnect: () -> Unit,
+    onConnectDevice: () -> Unit,
+    onRecalibrate: () -> Unit,
+    onViewLogs: () -> Unit,
+    onViewHistory: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+
+    val btManager = remember { context.getSystemService(Context.BLUETOOTH_SERVICE) as? AndroidBluetoothManager }
+    val btAdapter = btManager?.adapter
+    val enableBluetoothLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {}
+
+    val deviceAliases by preferencesRepository.deviceAliases.collectAsStateWithLifecycle(initialValue = emptyMap())
+    var deviceToAlias by remember { mutableStateOf<ForceDevice?>(null) }
+    var aliasInput by remember { mutableStateOf("") }
+
+    val useLbs by preferencesRepository.useLbs.collectAsStateWithLifecycle(initialValue = false)
+    val showForceGraph by preferencesRepository.showForceGraph.collectAsStateWithLifecycle(initialValue = true)
+    val forceGraphWindow by preferencesRepository.forceGraphWindow.collectAsStateWithLifecycle(initialValue = 5)
+    val weightTolerance by preferencesRepository.weightTolerance.collectAsStateWithLifecycle(initialValue = 0.5)
+    val enableHaptics by preferencesRepository.enableHaptics.collectAsStateWithLifecycle(initialValue = true)
+    val enableTargetSound by preferencesRepository.enableTargetSound.collectAsStateWithLifecycle(initialValue = true)
+    val enableCalibration by preferencesRepository.enableCalibration.collectAsStateWithLifecycle(initialValue = true)
+    val backgroundTimeSync by preferencesRepository.backgroundTimeSync.collectAsStateWithLifecycle(initialValue = true)
+
+    val enableIsotonicMode by preferencesRepository.enableIsotonicMode.collectAsStateWithLifecycle(initialValue = false)
+    val flashOnEccentric by preferencesRepository.flashOnEccentric.collectAsStateWithLifecycle(initialValue = true)
+    val flashOnWait by preferencesRepository.flashOnWait.collectAsStateWithLifecycle(initialValue = true)
+    val beepOnEccentric by preferencesRepository.beepOnEccentric.collectAsStateWithLifecycle(initialValue = true)
+    val beepOnWait by preferencesRepository.beepOnWait.collectAsStateWithLifecycle(initialValue = true)
+
+    val autoFailRep by preferencesRepository.autoFailRep.collectAsStateWithLifecycle(initialValue = false)
+    val failThreshold by preferencesRepository.failThreshold.collectAsStateWithLifecycle(initialValue = 0.50)
+    val enableEndSessionOnEarlyFail by preferencesRepository.enableEndSessionOnEarlyFail.collectAsStateWithLifecycle(initialValue = false)
+    val earlyFailThresholdPercent by preferencesRepository.earlyFailThresholdPercent.collectAsStateWithLifecycle(initialValue = 0.50)
+
+    val connectionState by bluetoothManager.connectionState.collectAsStateWithLifecycle()
+    val connectedDeviceName by bluetoothManager.connectedDeviceName.collectAsStateWithLifecycle()
+    val discoveredDevices by bluetoothManager.discoveredDevices.collectAsStateWithLifecycle()
+
+    val enableAnalytics by preferencesRepository.enableAnalytics.collectAsStateWithLifecycle(initialValue = true)
+    val showIsoSummary by preferencesRepository.showIsoSummary.collectAsStateWithLifecycle(initialValue = true)
+    val showRawSummary by preferencesRepository.showRawSummary.collectAsStateWithLifecycle(initialValue = true)
+
+    var showTensionSheet by remember { mutableStateOf(false) }
+    var showResetConfirmation by remember { mutableStateOf(false) }
+
+    var weightInput by remember {
+        val initialDisplay = if (useLbs) 20.0 else 20.0
+        mutableStateOf(initialDisplay.toInt().toString())
+    }
+
+    LaunchedEffect(useLbs) {
+        weightInput = "20"
+    }
+
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+
+    Scaffold(
+        modifier = Modifier
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
+                },
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Tension Data", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    DataSourceCard(
+                        title = "Scale Connection",
+                        icon = Icons.Default.FitnessCenter,
+                        activeSource = if (connectionState == ConnectionState.Connected) connectedDeviceName ?: "Bluetooth Scale" else "[No Device]",
+                        statusColor = if (connectionState == ConnectionState.Connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        onClick = {
+                            val isBtOn = runCatching { btAdapter?.isEnabled == true }.getOrDefault(false)
+                            if (isBtOn) {
+                                bluetoothManager.startScanning()
+                                showTensionSheet = true
+                            } else {
+                                enableBluetoothLauncher.launch(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                            }
+                        }
+                    )
+
+                    if (connectionState != ConnectionState.Connected) {
+                        OutlinedTextField(
+                            value = weightInput,
+                            onValueChange = { weightInput = it },
+                            label = { Text("Manual Target (${if (useLbs) "lbs" else "kg"})") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    weightInput.toDoubleOrNull()?.let { typedVal ->
+                                        val weightInKg = if (useLbs) typedVal / 2.20462 else typedVal
+                                        onWeightChange(weightInKg)
+                                        weightInput = String.format(java.util.Locale.US, "%.1f", typedVal)
+                                    }
+                                }
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    val unitLabel = if (useLbs) "lbs" else "kg"
+                    Text("Target Tolerance: ${String.format(java.util.Locale.US, "%.1f", weightTolerance)} $unitLabel", style = MaterialTheme.typography.bodyMedium)
+                    Slider(
+                        value = weightTolerance.toFloat(),
+                        onValueChange = { coroutineScope.launch { preferencesRepository.setWeightTolerance(it.toDouble()) } },
+                        valueRange = 0.5f..5.0f,
+                        steps = 8
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Auto-Calibrate on Connect")
+                        Switch(checked = enableCalibration, onCheckedChange = { coroutineScope.launch { preferencesRepository.setEnableCalibration(it) } })
+                    }
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Isotonics", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                                Text("Isotonic Mode", style = MaterialTheme.typography.bodyLarge)
+                                Text("Treat Basic Timer as an Isotonic session with a 3-second cadence and audio/visual metronomes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = enableIsotonicMode,
+                                onCheckedChange = { coroutineScope.launch { preferencesRepository.setEnableIsotonicMode(it) } }
+                            )
+                        }
+
+                        AnimatedVisibility(visible = enableIsotonicMode) {
+                            Column {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), modifier = Modifier.padding(bottom = 8.dp))
+
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Flash on Eccentric")
+                                    Switch(checked = flashOnEccentric, onCheckedChange = { coroutineScope.launch { preferencesRepository.setFlashOnEccentric(it) } })
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Flash on Countdown")
+                                    Switch(checked = flashOnWait, onCheckedChange = { coroutineScope.launch { preferencesRepository.setFlashOnWait(it) } })
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Beep on Eccentric")
+                                    Switch(checked = beepOnEccentric, onCheckedChange = { coroutineScope.launch { preferencesRepository.setBeepOnEccentric(it) } })
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Beep on Countdown")
+                                    Switch(checked = beepOnWait, onCheckedChange = { coroutineScope.launch { preferencesRepository.setBeepOnWait(it) } })
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Analytics & History", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text("Enable Analytics", style = MaterialTheme.typography.bodyLarge)
+                            Switch(checked = enableAnalytics, onCheckedChange = { coroutineScope.launch { preferencesRepository.setEnableAnalytics(it) } })
+                        }
+
+                        AnimatedVisibility(visible = enableAnalytics) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 4.dp))
+
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Isometric Session Popups")
+                                        Switch(checked = showIsoSummary, onCheckedChange = { coroutineScope.launch { preferencesRepository.setShowIsoSummary(it) } })
+                                    }
+                                    Text("If off, isometric sessions auto-save to History without a summary screen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Basic Timer Popups")
+                                        Switch(checked = showRawSummary, onCheckedChange = { coroutineScope.launch { preferencesRepository.setShowRawSummary(it) } })
+                                    }
+                                    Text("If off, nothing will be saved from Basic Timer sessions. A popup is required to input your equipment.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Display & Feedback", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Use Imperial Units (lbs)")
+                        Switch(checked = useLbs, onCheckedChange = { coroutineScope.launch { preferencesRepository.setUseLbs(it) } })
+                    }
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text("Show Force Graph")
+                            Switch(checked = showForceGraph, onCheckedChange = { coroutineScope.launch { preferencesRepository.setShowForceGraph(it) } })
+                        }
+
+                        AnimatedVisibility(visible = showForceGraph) {
+                            Column {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Force Graph Window: ${forceGraphWindow}s", style = MaterialTheme.typography.bodyMedium)
+                                Slider(
+                                    value = forceGraphWindow.toFloat(),
+                                    onValueChange = { coroutineScope.launch { preferencesRepository.setForceGraphWindow(it.toInt()) } },
+                                    valueRange = 2f..15f,
+                                    steps = 12
+                                )
+                            }
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Haptic Feedback")
+                        Switch(checked = enableHaptics, onCheckedChange = { coroutineScope.launch { preferencesRepository.setEnableHaptics(it) } })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Target Weight Sounds")
+                        Switch(checked = enableTargetSound, onCheckedChange = { coroutineScope.launch { preferencesRepository.setEnableTargetSound(it) } })
+                    }
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Advanced", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Rep bei Kraftabfall beenden", modifier = Modifier.weight(1f))
+                            Switch(checked = autoFailRep, onCheckedChange = { coroutineScope.launch { preferencesRepository.setAutoFailRep(it) } })
+                        }
+                        if (autoFailRep) {
+                            Text("Nach 300 ms stabiler Belastung ab 3 kg: Ende bei anhaltendem Abfall gegenüber dem Spitzenwert dieser Wiederholung. Nur während einer laufenden Rep im geöffneten Timer.", style = MaterialTheme.typography.bodySmall)
+                            Text("Kraftabfall: ${(failThreshold * 100).roundToInt()} %")
+                            Slider(value = failThreshold.toFloat().coerceIn(0.1f, 0.8f), onValueChange = {
+                                coroutineScope.launch { preferencesRepository.setFailThreshold(it.toDouble()) }
+                            }, valueRange = 0.1f..0.8f, steps = 13)
+                            val holdMs by preferencesRepository.forceDropHoldMs.collectAsStateWithLifecycle(initialValue = 250)
+                            Text("Bestätigungszeit: $holdMs ms")
+                            Slider(value = holdMs.toFloat(), onValueChange = {
+                                coroutineScope.launch { preferencesRepository.setForceDropHoldMs((it / 50).roundToInt() * 50) }
+                            }, valueRange = 100f..1000f, steps = 17)
+                            Text("Beispiel: 50 % bei 20 kg Spitzenwert → Ende bei ≤ 10 kg. Kurze Ausreißer und Verbindungsabbrüche beenden keine Rep.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("System Commands", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    Button(onClick = { webViewBridge.reloadPage(); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) {
+                        Icon(Icons.Default.Refresh, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Refresh Website")
+                    }
+
+                    Button(onClick = { webViewBridge.clearWebsiteData(); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                        Icon(Icons.Default.Delete, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Clear Website Data")
+                    }
+
+                    if (connectionState == ConnectionState.Connected) {
+                        Button(onClick = onRecalibrate, modifier = Modifier.fillMaxWidth()) {
+                            Text("Zero Connected Scale")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { showResetConfirmation = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Warning, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Reset to Defaults")
+            }
+            Spacer(modifier = Modifier.height(48.dp))
+        }
+
+        if (showResetConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmation = false },
+                title = { Text("Reset to Defaults") },
+                text = { Text("This will restore all settings to their recommended values.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch { preferencesRepository.resetToDefaults() }
+                            showResetConfirmation = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Reset") }
+                },
+                dismissButton = { TextButton(onClick = { showResetConfirmation = false }) { Text("Cancel") } }
+            )
+        }
+
+        if (showTensionSheet) {
+            AlertDialog(
+                onDismissRequest = { showTensionSheet = false },
+                shape = RoundedCornerShape(28.dp),
+                title = { Text("Select Tension Source", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        if (connectionState == ConnectionState.Connected) {
+                            TextButton(
+                                onClick = { bluetoothManager.disconnect(); showTensionSheet = false },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Disconnect Current Scale", color = MaterialTheme.colorScheme.error)
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        if (discoveredDevices.isEmpty() && connectionState != ConnectionState.Connected) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            LazyColumn(modifier = Modifier.heightIn(max = 350.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(discoveredDevices) { device ->
+                                    Surface(
+                                        onClick = {
+                                            bluetoothManager.connect(device)
+                                            showTensionSheet = false
+                                        },
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        @SuppressLint("MissingPermission")
+                                        val defaultName = device.name ?: "Unknown Device"
+                                        val displayName = deviceAliases[device.address] ?: defaultName
+
+                                        ListItem(
+                                            headlineContent = { Text(displayName, fontWeight = FontWeight.Bold) },
+                                            supportingContent = { Text(device.address) },
+                                            leadingContent = { Icon(Icons.Default.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            trailingContent = {
+                                                IconButton(
+                                                    onClick = {
+                                                        aliasInput = if (deviceAliases.containsKey(device.address)) displayName else ""
+                                                        deviceToAlias = device
+                                                        showTensionSheet = false
+                                                    }
+                                                ) {
+                                                    Icon(Icons.Default.Edit, contentDescription = "Edit Name", modifier = Modifier.size(20.dp))
+                                                }
+                                            },
+                                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showTensionSheet = false }) { Text("Close") }
+                }
+            )
+        }
+
+        if (deviceToAlias != null) {
+            AlertDialog(
+                onDismissRequest = { deviceToAlias = null },
+                shape = RoundedCornerShape(24.dp),
+                title = { Text("Rename Device", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text(
+                            text = "Hardware MAC: ${deviceToAlias?.address}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = aliasInput,
+                            onValueChange = { aliasInput = it },
+                            label = { Text("Custom Name") },
+                            placeholder = { Text(deviceToAlias?.name ?: "e.g. My Progressor") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (deviceAliases.containsKey(deviceToAlias?.address)) {
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch { preferencesRepository.setDeviceAlias(deviceToAlias!!.address, "") }
+                                    deviceToAlias = null
+                                },
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text("Remove Custom Name", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        coroutineScope.launch {
+                            deviceToAlias?.let {
+                                preferencesRepository.setDeviceAlias(it.address, aliasInput.trim())
+                            }
+                            deviceToAlias = null
+                        }
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { deviceToAlias = null }) { Text("Cancel") }
+                }
+            )
+        }
+    }
+}

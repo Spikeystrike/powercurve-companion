@@ -1,0 +1,357 @@
+package app.grip_gains_companion.data
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.dataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import app.grip_gains_companion.config.AppConstants
+import app.grip_gains_companion.data.PreferencesRepository.Keys.DEVICE_ALIASES
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import java.util.Locale
+
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+
+/**
+ * Repository for app preferences using DataStore
+ */
+class PreferencesRepository(private val context: Context) {
+    private val dataStore = context.dataStore
+
+    // Keys
+    private object Keys {
+        val HAS_INITIALIZED_UNITS = booleanPreferencesKey("has_initialized_units")
+        val USE_LBS = booleanPreferencesKey("use_lbs")
+        val ENABLE_HAPTICS = booleanPreferencesKey("enable_haptics")
+        val ENABLE_TARGET_SOUND = booleanPreferencesKey("enable_target_sound")
+        val SHOW_STATUS_BAR = booleanPreferencesKey("show_status_bar")
+        val EXPANDED_FORCE_BAR = booleanPreferencesKey("expanded_force_bar")
+        val SHOW_FORCE_GRAPH = booleanPreferencesKey("show_force_graph")
+        val FORCE_GRAPH_WINDOW = intPreferencesKey("force_graph_window")
+        val FULL_SCREEN = booleanPreferencesKey("full_screen")
+        val FORCE_BAR_THEME = stringPreferencesKey("force_bar_theme")
+
+        val ENABLE_TARGET_WEIGHT = booleanPreferencesKey("enable_target_weight")
+        val USE_MANUAL_TARGET = booleanPreferencesKey("use_manual_target")
+        val MANUAL_TARGET_WEIGHT = doublePreferencesKey("manual_target_weight")
+        val WEIGHT_TOLERANCE = doublePreferencesKey("weight_tolerance")
+
+        val AUTO_FAIL_REP = booleanPreferencesKey("auto_fail_rep")
+        val FAIL_THRESHOLD = doublePreferencesKey("force_drop_fraction")
+        val FORCE_DROP_HOLD_MS = intPreferencesKey("force_drop_hold_ms")
+
+        val ENABLE_CALIBRATION = booleanPreferencesKey("enable_calibration")
+        val ENGAGE_THRESHOLD = doublePreferencesKey("engage_threshold")
+
+        val ENABLE_PERCENTAGE_THRESHOLDS = booleanPreferencesKey("enable_percentage_thresholds")
+        val ENGAGE_PERCENTAGE = doublePreferencesKey("engage_percentage")
+        val DISENGAGE_PERCENTAGE = doublePreferencesKey("disengage_percentage")
+        val TOLERANCE_PERCENTAGE = doublePreferencesKey("tolerance_percentage")
+
+        val ENGAGE_FLOOR = doublePreferencesKey("engage_floor")
+        val ENGAGE_CEILING = doublePreferencesKey("engage_ceiling")
+        val DISENGAGE_FLOOR = doublePreferencesKey("disengage_floor")
+        val DISENGAGE_CEILING = doublePreferencesKey("disengage_ceiling")
+        val TOLERANCE_FLOOR = doublePreferencesKey("tolerance_floor")
+        val TOLERANCE_CEILING = doublePreferencesKey("tolerance_ceiling")
+
+        val BACKGROUND_TIME_SYNC = booleanPreferencesKey("background_time_sync")
+        val ENABLE_LIVE_ACTIVITY = booleanPreferencesKey("enable_live_activity")
+        val AUTO_SELECT_WEIGHT = booleanPreferencesKey("auto_select_weight")
+        val AUTO_SELECT_FROM_MANUAL = booleanPreferencesKey("auto_select_from_manual")
+
+        val SHOW_GRIP_STATS = booleanPreferencesKey("show_grip_stats")
+        val SHOW_SET_REVIEW = booleanPreferencesKey("show_set_review")
+
+        val ENABLE_END_SESSION_ON_EARLY_FAIL = booleanPreferencesKey("enable_end_session_on_early_fail")
+        val EARLY_FAIL_THRESHOLD_PERCENT = doublePreferencesKey("early_fail_threshold_percent")
+
+        val LAST_CONNECTED_DEVICE_ADDRESS = stringPreferencesKey("last_connected_device_address")
+
+        val ENABLE_ISOTONIC_MODE = booleanPreferencesKey("enable_isotonic_mode")
+        val FLASH_ON_ECCENTRIC = booleanPreferencesKey("flash_on_eccentric")
+        val FLASH_ON_WAIT = booleanPreferencesKey("flash_on_wait")
+        val BEEP_ON_ECCENTRIC = booleanPreferencesKey("beep_on_eccentric")
+        val BEEP_ON_WAIT = booleanPreferencesKey("beep_on_wait")
+
+        val ENABLE_ANALYTICS = booleanPreferencesKey("enable_analytics")
+        val SHOW_ISO_SUMMARY = booleanPreferencesKey("show_iso_summary")
+        val SHOW_RAW_SUMMARY = booleanPreferencesKey("show_raw_summary")
+
+        val DEVICE_ALIASES = stringPreferencesKey("device_aliases")
+    }
+
+    val forceDropHoldMs: Flow<Int> = dataStore.data.map { (it[Keys.FORCE_DROP_HOLD_MS] ?: 250).coerceIn(100, 1000) }
+    suspend fun setForceDropHoldMs(value: Int) = dataStore.edit { it[Keys.FORCE_DROP_HOLD_MS] = value.coerceIn(100, 1000) }
+
+    // --- ISOTONIC PREFERENCES ---
+    val enableIsotonicMode: Flow<Boolean> = context.dataStore.data.map { it[Keys.ENABLE_ISOTONIC_MODE] ?: false }
+    suspend fun setEnableIsotonicMode(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_ISOTONIC_MODE] = value }
+
+    val flashOnEccentric: Flow<Boolean> = context.dataStore.data.map { it[Keys.FLASH_ON_ECCENTRIC] ?: true }
+    suspend fun setFlashOnEccentric(value: Boolean) = context.dataStore.edit { it[Keys.FLASH_ON_ECCENTRIC] = value }
+
+    val flashOnWait: Flow<Boolean> = context.dataStore.data.map { it[Keys.FLASH_ON_WAIT] ?: true }
+    suspend fun setFlashOnWait(value: Boolean) = context.dataStore.edit { it[Keys.FLASH_ON_WAIT] = value }
+
+    val beepOnEccentric: Flow<Boolean> = context.dataStore.data.map { it[Keys.BEEP_ON_ECCENTRIC] ?: true }
+    suspend fun setBeepOnEccentric(value: Boolean) = context.dataStore.edit { it[Keys.BEEP_ON_ECCENTRIC] = value }
+
+    val beepOnWait: Flow<Boolean> = context.dataStore.data.map { it[Keys.BEEP_ON_WAIT] ?: true }
+    suspend fun setBeepOnWait(value: Boolean) = context.dataStore.edit { it[Keys.BEEP_ON_WAIT] = value }
+
+    // --- ANALYTICS PREFERENCES ---
+    val enableAnalytics: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_ANALYTICS] ?: true
+    }
+    suspend fun setEnableAnalytics(value: Boolean) = context.dataStore.edit {
+        it[Keys.ENABLE_ANALYTICS] = value
+    }
+
+    val showIsoSummary: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.SHOW_ISO_SUMMARY] ?: true
+    }
+    suspend fun setShowIsoSummary(value: Boolean) = context.dataStore.edit {
+        it[Keys.SHOW_ISO_SUMMARY] = value
+    }
+
+    val showRawSummary: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.SHOW_RAW_SUMMARY] ?: true
+    }
+    suspend fun setShowRawSummary(value: Boolean) = context.dataStore.edit {
+        it[Keys.SHOW_RAW_SUMMARY] = value
+    }
+
+    // --- REQUESTED DEFAULT: AUTO FAIL REP OFF ---
+    val autoFailRep: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_FAIL_REP] ?: true }
+    suspend fun setAutoFailRep(value: Boolean) = context.dataStore.edit { it[Keys.AUTO_FAIL_REP] = value }
+
+    val failThreshold: Flow<Double> = context.dataStore.data.map { it[Keys.FAIL_THRESHOLD] ?: 0.5 }
+    suspend fun setFailThreshold(value: Double) = context.dataStore.edit { it[Keys.FAIL_THRESHOLD] = value }
+
+    // Unit preference
+    val useLbs: Flow<Boolean> = context.dataStore.data.map { it[Keys.USE_LBS] ?: false }
+    suspend fun setUseLbs(value: Boolean) = context.dataStore.edit { it[Keys.USE_LBS] = value }
+
+    // --- REQUESTED DEFAULT: HAPTIC FEEDBACK OFF ---
+    val enableHaptics: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_HAPTICS] ?: false
+    }
+    suspend fun setEnableHaptics(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_HAPTICS] = value }
+
+    // --- REQUESTED DEFAULT: TARGET SOUNDS OFF ---
+    val enableTargetSound: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_TARGET_SOUND] ?: false
+    }
+    suspend fun setEnableTargetSound(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_TARGET_SOUND] = value }
+
+    // Display preferences
+    val showStatusBar: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.SHOW_STATUS_BAR] ?: AppConstants.DEFAULT_SHOW_STATUS_BAR
+    }
+    suspend fun setShowStatusBar(value: Boolean) = context.dataStore.edit { it[Keys.SHOW_STATUS_BAR] = value }
+
+    val expandedForceBar: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.EXPANDED_FORCE_BAR] ?: AppConstants.DEFAULT_EXPANDED_FORCE_BAR
+    }
+    suspend fun setExpandedForceBar(value: Boolean) = context.dataStore.edit { it[Keys.EXPANDED_FORCE_BAR] = value }
+
+    val showForceGraph: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.SHOW_FORCE_GRAPH] ?: AppConstants.DEFAULT_SHOW_FORCE_GRAPH
+    }
+    suspend fun setShowForceGraph(value: Boolean) = context.dataStore.edit { it[Keys.SHOW_FORCE_GRAPH] = value }
+
+    val forceGraphWindow: Flow<Int> = context.dataStore.data.map {
+        it[Keys.FORCE_GRAPH_WINDOW] ?: AppConstants.DEFAULT_FORCE_GRAPH_WINDOW
+    }
+    suspend fun setForceGraphWindow(value: Int) = context.dataStore.edit { it[Keys.FORCE_GRAPH_WINDOW] = value }
+
+    val fullScreen: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.FULL_SCREEN] ?: AppConstants.DEFAULT_FULL_SCREEN
+    }
+    suspend fun setFullScreen(value: Boolean) = context.dataStore.edit { it[Keys.FULL_SCREEN] = value }
+
+    val forceBarTheme: Flow<String> = context.dataStore.data.map {
+        it[Keys.FORCE_BAR_THEME] ?: "system"
+    }
+    suspend fun setForceBarTheme(value: String) = context.dataStore.edit { it[Keys.FORCE_BAR_THEME] = value }
+
+    // Target weight preferences
+    val enableTargetWeight: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_TARGET_WEIGHT] ?: AppConstants.DEFAULT_ENABLE_TARGET_WEIGHT
+    }
+    suspend fun setEnableTargetWeight(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_TARGET_WEIGHT] = value }
+
+    val useManualTarget: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.USE_MANUAL_TARGET] ?: AppConstants.DEFAULT_USE_MANUAL_TARGET
+    }
+    suspend fun setUseManualTarget(value: Boolean) = context.dataStore.edit { it[Keys.USE_MANUAL_TARGET] = value }
+
+    val manualTargetWeight: Flow<Double> = context.dataStore.data.map {
+        it[Keys.MANUAL_TARGET_WEIGHT] ?: AppConstants.DEFAULT_MANUAL_TARGET_WEIGHT
+    }
+    suspend fun setManualTargetWeight(value: Double) = context.dataStore.edit { it[Keys.MANUAL_TARGET_WEIGHT] = value }
+
+    val weightTolerance: Flow<Double> = context.dataStore.data.map {
+        it[Keys.WEIGHT_TOLERANCE] ?: AppConstants.DEFAULT_WEIGHT_TOLERANCE
+    }
+    suspend fun setWeightTolerance(value: Double) = context.dataStore.edit { it[Keys.WEIGHT_TOLERANCE] = value }
+
+    // Calibration preferences
+    val enableCalibration: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_CALIBRATION] ?: AppConstants.DEFAULT_ENABLE_CALIBRATION
+    }
+    suspend fun setEnableCalibration(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_CALIBRATION] = value }
+
+    val engageThreshold: Flow<Double> = context.dataStore.data.map {
+        it[Keys.ENGAGE_THRESHOLD] ?: AppConstants.DEFAULT_ENGAGE_THRESHOLD
+    }
+    suspend fun setEngageThreshold(value: Double) = context.dataStore.edit { it[Keys.ENGAGE_THRESHOLD] = value }
+
+    // Percentage threshold preferences
+    val enablePercentageThresholds: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_PERCENTAGE_THRESHOLDS] ?: AppConstants.DEFAULT_ENABLE_PERCENTAGE_THRESHOLDS
+    }
+    suspend fun setEnablePercentageThresholds(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_PERCENTAGE_THRESHOLDS] = value }
+
+    val engagePercentage: Flow<Double> = context.dataStore.data.map {
+        it[Keys.ENGAGE_PERCENTAGE] ?: AppConstants.DEFAULT_ENGAGE_PERCENTAGE
+    }
+    suspend fun setEngagePercentage(value: Double) = context.dataStore.edit { it[Keys.ENGAGE_PERCENTAGE] = value }
+
+    val disengagePercentage: Flow<Double> = context.dataStore.data.map {
+        it[Keys.DISENGAGE_PERCENTAGE] ?: AppConstants.DEFAULT_DISENGAGE_PERCENTAGE
+    }
+    suspend fun setDisengagePercentage(value: Double) = context.dataStore.edit { it[Keys.DISENGAGE_PERCENTAGE] = value }
+
+    val tolerancePercentage: Flow<Double> = context.dataStore.data.map {
+        it[Keys.TOLERANCE_PERCENTAGE] ?: AppConstants.DEFAULT_TOLERANCE_PERCENTAGE
+    }
+    suspend fun setTolerancePercentage(value: Double) = context.dataStore.edit { it[Keys.TOLERANCE_PERCENTAGE] = value }
+
+    // Threshold bounds
+    val engageFloor: Flow<Double> = context.dataStore.data.map { it[Keys.ENGAGE_FLOOR] ?: AppConstants.DEFAULT_ENGAGE_FLOOR }
+    suspend fun setEngageFloor(value: Double) = context.dataStore.edit { it[Keys.ENGAGE_FLOOR] = value }
+
+    val engageCeiling: Flow<Double> = context.dataStore.data.map { it[Keys.ENGAGE_CEILING] ?: AppConstants.DEFAULT_ENGAGE_CEILING }
+    suspend fun setEngageCeiling(value: Double) = context.dataStore.edit { it[Keys.ENGAGE_CEILING] = value }
+
+    val disengageFloor: Flow<Double> = context.dataStore.data.map { it[Keys.DISENGAGE_FLOOR] ?: AppConstants.DEFAULT_DISENGAGE_FLOOR }
+    suspend fun setDisengageFloor(value: Double) = context.dataStore.edit { it[Keys.DISENGAGE_FLOOR] = value }
+
+    val disengageCeiling: Flow<Double> = context.dataStore.data.map { it[Keys.DISENGAGE_CEILING] ?: AppConstants.DEFAULT_DISENGAGE_CEILING }
+    suspend fun setDisengageCeiling(value: Double) = context.dataStore.edit { it[Keys.DISENGAGE_CEILING] = value }
+
+    val toleranceFloor: Flow<Double> = context.dataStore.data.map { it[Keys.TOLERANCE_FLOOR] ?: AppConstants.DEFAULT_TOLERANCE_FLOOR }
+    suspend fun setToleranceFloor(value: Double) = context.dataStore.edit { it[Keys.TOLERANCE_FLOOR] = value }
+
+    val toleranceCeiling: Flow<Double> = context.dataStore.data.map { it[Keys.TOLERANCE_CEILING] ?: AppConstants.DEFAULT_TOLERANCE_CEILING }
+    suspend fun setToleranceCeiling(value: Double) = context.dataStore.edit { it[Keys.TOLERANCE_CEILING] = value }
+
+    // --- REQUESTED DEFAULT: BACKGROUND TIME SYNC ON ---
+    val backgroundTimeSync: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.BACKGROUND_TIME_SYNC] ?: true
+    }
+    suspend fun setBackgroundTimeSync(value: Boolean) = context.dataStore.edit { it[Keys.BACKGROUND_TIME_SYNC] = value }
+
+    val enableLiveActivity: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_LIVE_ACTIVITY] ?: AppConstants.DEFAULT_ENABLE_LIVE_ACTIVITY
+    }
+    suspend fun setEnableLiveActivity(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_LIVE_ACTIVITY] = value }
+
+    val autoSelectWeight: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.AUTO_SELECT_WEIGHT] ?: AppConstants.DEFAULT_AUTO_SELECT_WEIGHT
+    }
+    suspend fun setAutoSelectWeight(value: Boolean) = context.dataStore.edit { it[Keys.AUTO_SELECT_WEIGHT] = value }
+
+    val autoSelectFromManual: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.AUTO_SELECT_FROM_MANUAL] ?: AppConstants.DEFAULT_AUTO_SELECT_FROM_MANUAL
+    }
+    suspend fun setAutoSelectFromManual(value: Boolean) = context.dataStore.edit { it[Keys.AUTO_SELECT_FROM_MANUAL] = value }
+
+    // Statistics preferences
+    val showGripStats: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.SHOW_GRIP_STATS] ?: AppConstants.DEFAULT_SHOW_GRIP_STATS
+    }
+    suspend fun setShowGripStats(value: Boolean) = context.dataStore.edit { it[Keys.SHOW_GRIP_STATS] = value }
+
+    val showSetReview: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.SHOW_SET_REVIEW] ?: AppConstants.DEFAULT_SHOW_SET_REVIEW
+    }
+    suspend fun setShowSetReview(value: Boolean) = context.dataStore.edit { it[Keys.SHOW_SET_REVIEW] = value }
+
+    // --- REQUESTED DEFAULT: ABORT FATIGUED SESSION OFF ---
+    val enableEndSessionOnEarlyFail: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ENABLE_END_SESSION_ON_EARLY_FAIL] ?: false
+    }
+    suspend fun setEnableEndSessionOnEarlyFail(value: Boolean) = context.dataStore.edit { it[Keys.ENABLE_END_SESSION_ON_EARLY_FAIL] = value }
+
+    val earlyFailThresholdPercent: Flow<Double> = context.dataStore.data.map {
+        it[Keys.EARLY_FAIL_THRESHOLD_PERCENT] ?: AppConstants.DEFAULT_EARLY_FAIL_THRESHOLD_PERCENT
+    }
+    suspend fun setEarlyFailThresholdPercent(value: Double) = context.dataStore.edit { it[Keys.EARLY_FAIL_THRESHOLD_PERCENT] = value }
+
+    // Device preferences
+    val lastConnectedDeviceAddress: Flow<String?> = context.dataStore.data.map {
+        it[Keys.LAST_CONNECTED_DEVICE_ADDRESS]
+    }
+    suspend fun setLastConnectedDeviceAddress(value: String?) = context.dataStore.edit {
+        if (value != null) {
+            it[Keys.LAST_CONNECTED_DEVICE_ADDRESS] = value
+        } else {
+            it.remove(Keys.LAST_CONNECTED_DEVICE_ADDRESS)
+        }
+    }
+
+    // 1. Expose the map of MAC Addresses to Custom Names
+    val deviceAliases: Flow<Map<String, String>> = dataStore.data.map { preferences ->
+        val rawString = preferences[DEVICE_ALIASES] ?: ""
+        if (rawString.isEmpty()) emptyMap()
+        else rawString.split("||").associate {
+            val parts = it.split("::", limit = 2)
+            parts[0] to (parts.getOrNull(1) ?: "")
+        }
+    }
+
+    // 2. Save a new alias (or remove it if blank)
+    suspend fun setDeviceAlias(macAddress: String, alias: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[DEVICE_ALIASES] ?: ""
+            val map = if (current.isEmpty()) mutableMapOf()
+            else current.split("||").associate {
+                val p = it.split("::", limit = 2)
+                p[0] to (p.getOrNull(1) ?: "")
+            }.toMutableMap()
+
+            if (alias.isBlank()) map.remove(macAddress) // Revert to default name
+            else map[macAddress] = alias
+
+            preferences[DEVICE_ALIASES] = map.entries.joinToString("||") { "${it.key}::${it.value}" }
+        }
+    }
+
+    suspend fun initializeUnitsIfNeeded() {
+        val hasInitialized = context.dataStore.data.first()[Keys.HAS_INITIALIZED_UNITS] ?: false
+        if (!hasInitialized) {
+            val country = Locale.getDefault().country.uppercase()
+            val usesImperial = country in listOf("US", "MM", "LR")
+            context.dataStore.edit { prefs ->
+                prefs[Keys.USE_LBS] = usesImperial
+                prefs[Keys.HAS_INITIALIZED_UNITS] = true
+            }
+        }
+    }
+
+    suspend fun resetToDefaults() {
+        context.dataStore.edit { prefs ->
+            prefs.clear()
+        }
+    }
+}
