@@ -13,14 +13,14 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = Application::class)
 class BridgeInstallationTagTest {
     @Test fun frameworkKeyReproducesTheStartupCrash() {
-        val view = View(RuntimeEnvironment.getApplication<Application>())
+        val view = View(RuntimeEnvironment.getApplication())
         assertThrows(IllegalArgumentException::class.java) {
             view.setTag(android.R.id.custom, true)
         }
     }
 
     @Test fun appKeyCanMarkTheBridgeWithoutCrashing() {
-        val view = View(RuntimeEnvironment.getApplication<Application>())
+        val view = View(RuntimeEnvironment.getApplication())
         assertFalse(BridgeInstallationTag.isInstalled(view))
         BridgeInstallationTag.markInstalled(view)
         assertTrue(BridgeInstallationTag.isInstalled(view))
@@ -29,7 +29,7 @@ class BridgeInstallationTagTest {
     }
 
     @Test fun anotherViewStartsUnmarked() {
-        val context = RuntimeEnvironment.getApplication<Application>()
+        val context = RuntimeEnvironment.getApplication()
         val first = View(context)
         val second = View(context)
         BridgeInstallationTag.markInstalled(first)
