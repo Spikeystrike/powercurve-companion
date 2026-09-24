@@ -39,7 +39,7 @@ class WebViewBridge {
     val targetDuration = _targetDuration.asStateFlow()
     private val _saveButtonAppeared = MutableStateFlow(false)
     val saveButtonAppeared = _saveButtonAppeared.asStateFlow()
-    private val _status = MutableStateFlow("Powercurve wird geladen …")
+    private val _status = MutableStateFlow("Loading Powercurve…")
     val status = _status.asStateFlow()
 
     fun setWebView(view: WebView) { webView = view }
@@ -51,8 +51,8 @@ class WebViewBridge {
     fun updateUrl(url: String) { _currentUrl.value = url }
     fun resetSaveFlag() { _saveButtonAppeared.value = false }
     fun resetManualSessionEndTrigger() { _manualSessionEndTrigger.value = false }
-    fun invalidate(message: String = "Timer-Verbindung wird aufgebaut …") {
-        heartbeat = 0; _buttonEnabled.value = false; _remainingTime.value = null; _status.value = message
+    fun invalidate(message: String = "Connecting to the timer…") {
+        heartbeat = 0; _targetWeight.value = null; _buttonEnabled.value = false; _remainingTime.value = null; _status.value = message
     }
     fun clearWebsiteData() {
         CookieManager.getInstance().removeAllCookies {
@@ -83,23 +83,23 @@ class WebViewBridge {
         if (next == "complete" && phase != "complete") _saveButtonAppeared.value = true
         phase = next
         _status.value = when {
-            next == "unavailable" -> "Powercurve: Timer öffnen / anmelden"
-            next == "rep" && !_buttonEnabled.value -> "Timer nicht erkannt – Wiederholung manuell beenden"
-            next == "rep" -> "Kraftkurve · Wiederholung läuft"
-            next == "rest" -> "Pause · Automatik wartet"
-            next == "complete" -> "Satz beendet · In Powercurve speichern"
-            else -> "Powercurve verbunden · $next"
+            next == "unavailable" -> "Powercurve: open the timer / sign in"
+            next == "rep" && !_buttonEnabled.value -> "Timer not recognized — end the rep manually"
+            next == "rep" -> "Force curve · Rep in progress"
+            next == "rest" -> "Rest · Auto-end waiting"
+            next == "complete" -> "Set complete · Save in Powercurve"
+            else -> "Powercurve connected · $next"
         }
     }
     fun clickFailButton() {
         val key = repKey
         if (!isFreshActive) return
         webView?.evaluateJavascript(JavaScriptBridge.endRep(key)) { result ->
-            if (result != "true") _status.value = "Automatik nicht bestätigt – bitte End rep antippen"
+            if (result != "true") _status.value = "Auto-end not confirmed — tap End rep"
         }
     }
     // Powercurve intentionally requires a hold gesture to end an entire set.
-    fun clickEndSessionButton() { _status.value = "Satz bei Bedarf in Powercurve durch Gedrückthalten beenden" }
+    fun clickEndSessionButton() { _status.value = "To end the set, press and hold the button in Powercurve" }
 
     private fun parseWeight(text: String): Double? {
         val match = Regex("([0-9]+(?:[.,][0-9]+)?)\\s*(kg|lbs?|pounds?)", RegexOption.IGNORE_CASE).find(text) ?: return null

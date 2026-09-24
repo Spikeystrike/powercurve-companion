@@ -62,6 +62,7 @@ fun SettingsScreen(
     onViewLogs: () -> Unit,
     onViewHistory: () -> Unit
 ) {
+    val whc06FallbackLbs by preferencesRepository.whc06FallbackLbs.collectAsStateWithLifecycle(initialValue = false)
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -164,25 +165,7 @@ fun SettingsScreen(
                         }
                     )
 
-                    if (connectionState != ConnectionState.Connected) {
-                        OutlinedTextField(
-                            value = weightInput,
-                            onValueChange = { weightInput = it },
-                            label = { Text("Manual Target (${if (useLbs) "lbs" else "kg"})") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    focusManager.clearFocus()
-                                    weightInput.toDoubleOrNull()?.let { typedVal ->
-                                        val weightInKg = if (useLbs) typedVal / 2.20462 else typedVal
-                                        onWeightChange(weightInKg)
-                                        weightInput = String.format(java.util.Locale.US, "%.1f", typedVal)
-                                    }
-                                }
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    Text("Target weight follows the Weight field in the Powercurve timer. Edit it before starting each set.", style = MaterialTheme.typography.bodySmall)
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
@@ -208,6 +191,14 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("WH-C06 fallback unit: pounds")
+                            Text("Only for scales without a valid unit code. Off = kg, on = lb. Match the unit shown on the scale; app display units are independent.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(checked = whc06FallbackLbs, onCheckedChange = { coroutineScope.launch { preferencesRepository.setWhc06FallbackLbs(it) } })
+                    }
+                    HorizontalDivider()
                     Text("Isotonics", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
 
                     Column {
@@ -342,21 +333,21 @@ fun SettingsScreen(
 
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Rep bei Kraftabfall beenden", modifier = Modifier.weight(1f))
+                            Text("End rep on force drop", modifier = Modifier.weight(1f))
                             Switch(checked = autoFailRep, onCheckedChange = { coroutineScope.launch { preferencesRepository.setAutoFailRep(it) } })
                         }
                         if (autoFailRep) {
-                            Text("Nach 300 ms stabiler Belastung ab 3 kg: Ende bei anhaltendem Abfall gegenüber dem Spitzenwert dieser Wiederholung. Nur während einer laufenden Rep im geöffneten Timer.", style = MaterialTheme.typography.bodySmall)
-                            Text("Kraftabfall: ${(failThreshold * 100).roundToInt()} %")
+                            Text("After 300 ms of stable load at or above 3 kg, end the rep on a sustained drop from its peak force. Only active while a rep is running in the visible timer.", style = MaterialTheme.typography.bodySmall)
+                            Text("Force drop: ${(failThreshold * 100).roundToInt()} %")
                             Slider(value = failThreshold.toFloat().coerceIn(0.1f, 0.8f), onValueChange = {
                                 coroutineScope.launch { preferencesRepository.setFailThreshold(it.toDouble()) }
                             }, valueRange = 0.1f..0.8f, steps = 13)
                             val holdMs by preferencesRepository.forceDropHoldMs.collectAsStateWithLifecycle(initialValue = 250)
-                            Text("Bestätigungszeit: $holdMs ms")
+                            Text("Confirmation time: $holdMs ms")
                             Slider(value = holdMs.toFloat(), onValueChange = {
                                 coroutineScope.launch { preferencesRepository.setForceDropHoldMs((it / 50).roundToInt() * 50) }
                             }, valueRange = 100f..1000f, steps = 17)
-                            Text("Beispiel: 50 % bei 20 kg Spitzenwert → Ende bei ≤ 10 kg. Kurze Ausreißer und Verbindungsabbrüche beenden keine Rep.", style = MaterialTheme.typography.bodySmall)
+                            Text("Example: a 50% drop from a 20 kg peak ends the rep at 10 kg or below. Brief spikes and disconnections do not end a rep.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
 

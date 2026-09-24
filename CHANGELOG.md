@@ -1,9 +1,20 @@
-# Änderungen
+# Changelog
+
+## 0.1.2
+
+- WH-C06: accept measurement payloads with varying manufacturer IDs and missing/unknown unit codes; use an explicit fallback scale unit independent of display units.
+- Show Connected only after a valid WH-C06 measurement; handle batched advertisements and avoid duplicate scans when reopening a screen.
+- Add first-packet diagnostics and a no-readings timeout to the in-app logs.
+- Read the target from Powercurve's Weight input during setup and the active set summary while training. Clear invalid/missing targets; remove stale override and fixed 20 kg fallback.
+- Translate app messages and repository documentation into English.
+- Increase version code to 4.
+
+Hardware reception still needs confirmation on the user's WH-C06.
 
 ## 0.1.1
 
-- Startabsturz in der WebView behoben: `View.setTag` verwendet nun eine eigene App-Ressourcen-ID statt der reservierten `android.R.id.custom`.
-- Android-Laufzeittest reproduziert die bisherige Ausnahme und prüft die neue Markierung einschließlich mehrfacher Verwendung und getrennter Views.
-- Versionscode auf 3 erhöht.
+- Fix an immediate WebView startup exception by replacing the reserved `android.R.id.custom` tag key with an app resource ID.
+- Add Android runtime regression tests for the previous exception, repeated installation and separate Views.
+- Increase version code to 3.
 
-Die Korrektur adressiert einen bestätigten Fehler im Startpfad. Die genaue Ursache auf dem gemeldeten Telefon kann ohne dessen Absturzprotokoll nicht abschließend zugeordnet werden.
+The fix addresses a confirmed startup-path bug. The original phone incident did not include a stack trace.

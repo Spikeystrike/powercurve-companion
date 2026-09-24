@@ -1,9 +1,9 @@
-# Datenschutz
+# Privacy
 
-Powercurve Android öffnet https://powercurve.tantaluspath.com in einer WebView. Anmeldung und vom Benutzer gespeicherte Sessions werden von diesem Dienst verarbeitet; dessen Datenschutzbedingungen gelten für den Server.
+Powercurve Android opens https://powercurve.tantaluspath.com in a WebView. That service processes sign-in and user-saved sessions under its own privacy terms.
 
-Bluetooth-Messwerte werden auf dem Telefon verarbeitet. Lokale Trainingsverläufe und Einstellungen bleiben in der App. Die App überträgt keine Roh-Kraftkurven an ein zusätzliches Backend und enthält keine zusätzliche Telemetrie. Ein ausdrücklich ausgelöster Export oder Teilen-Vorgang überträgt die ausgewählte Datei an das vom Benutzer gewählte Ziel.
+Bluetooth measurements are processed on the phone. Local history and preferences remain in the app. The app sends no raw force curves to an additional backend and adds no telemetry. An explicit export or share action sends the selected file to the destination chosen by the user.
 
-Bluetooth-Geräteadressen werden für die Wiederverbindung lokal gespeichert. Standortberechtigung unter Android 10/11 wird nur zur BLE-Suche benötigt. Es werden keine Standortkoordinaten erfasst.
+Bluetooth device addresses are stored locally for reconnection. On Android 10/11, location permission is required for BLE discovery. The app does not collect location coordinates.
 
-„Clear Website Data“ entfernt WebView-Cookies und Website-Speicher; lokale Trainingsverläufe werden dadurch nicht gelöscht. Android-App-Daten löschen entfernt sämtliche lokalen App-Daten. Android-Backups sind für diese App deaktiviert.
+**Clear Website Data** removes WebView cookies and website storage without deleting local training history. Clearing Android app data removes all local app data. Android backups are disabled for this app.

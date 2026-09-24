@@ -67,7 +67,7 @@ fun MainScreen(
     forceGraphWindow: Int,
     useLbs: Boolean,
     enableTargetWeight: Boolean,
-    manualTargetWeight: Double,
+    manualTargetWeight: Double?,
     weightTolerance: Double,
     enableAnalytics: Boolean,
     isIsotonicSession: Boolean,
@@ -419,9 +419,9 @@ fun MainScreen(
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         onSetManualWeightTap()
                                     }) {
-                                        val displayWeight = if (useLbs) manualTargetWeight * 2.20462 else manualTargetWeight
+                                        val displayWeight = manualTargetWeight?.let { if (useLbs) it * 2.20462 else it }
                                         Text(
-                                            text = "${String.format(java.util.Locale.US, "%.1f", displayWeight)} ${if (useLbs) "lbs" else "kg"}",
+                                            text = if (displayWeight == null) "Target: —" else "${String.format(java.util.Locale.US, "%.1f", displayWeight)} ${if (useLbs) "lbs" else "kg"}",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White

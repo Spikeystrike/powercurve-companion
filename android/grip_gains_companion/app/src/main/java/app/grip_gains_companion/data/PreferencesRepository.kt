@@ -29,6 +29,7 @@ class PreferencesRepository(private val context: Context) {
     private object Keys {
         val HAS_INITIALIZED_UNITS = booleanPreferencesKey("has_initialized_units")
         val USE_LBS = booleanPreferencesKey("use_lbs")
+        val WHC06_FALLBACK_LBS = booleanPreferencesKey("whc06_fallback_lbs")
         val ENABLE_HAPTICS = booleanPreferencesKey("enable_haptics")
         val ENABLE_TARGET_SOUND = booleanPreferencesKey("enable_target_sound")
         val SHOW_STATUS_BAR = booleanPreferencesKey("show_status_bar")
@@ -87,6 +88,9 @@ class PreferencesRepository(private val context: Context) {
 
         val DEVICE_ALIASES = stringPreferencesKey("device_aliases")
     }
+
+    val whc06FallbackLbs: Flow<Boolean> = dataStore.data.map { it[Keys.WHC06_FALLBACK_LBS] ?: false }
+    suspend fun setWhc06FallbackLbs(value: Boolean) = dataStore.edit { it[Keys.WHC06_FALLBACK_LBS] = value }
 
     val forceDropHoldMs: Flow<Int> = dataStore.data.map { (it[Keys.FORCE_DROP_HOLD_MS] ?: 250).coerceIn(100, 1000) }
     suspend fun setForceDropHoldMs(value: Int) = dataStore.edit { it[Keys.FORCE_DROP_HOLD_MS] = value.coerceIn(100, 1000) }

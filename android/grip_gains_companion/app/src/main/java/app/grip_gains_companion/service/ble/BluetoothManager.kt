@@ -48,6 +48,7 @@ class BluetoothManager(private val context: Context) {
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     private var bluetoothLeScanner: BluetoothLeScanner? = null
+    private var scanRunning = false
 
     private var bluetoothGatt: BluetoothGatt? = null
     private var notifyCharacteristic: BluetoothGattCharacteristic? = null
@@ -97,7 +98,7 @@ class BluetoothManager(private val context: Context) {
         if (bluetoothAdapter == null) {
             _connectionState.value = ConnectionState.Error("Bluetooth not available")
         } else if (!hasBlePermission()) {
-            _connectionState.value = ConnectionState.Error("Bluetooth-Berechtigung erforderlich")
+            _connectionState.value = ConnectionState.Error("Bluetooth permission required")
         } else if (!bluetoothAdapter.isEnabled) {
             _connectionState.value = ConnectionState.Error("Bluetooth is off")
         } else {
@@ -123,8 +124,10 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun startScanning() {
+        // Re-entering the screen must not restart the WH-C06 measurement scan.
+        if (scanRunning || _connectionState.value == ConnectionState.Connected || _connectionState.value == ConnectionState.Connecting) return
         if (!hasBlePermission()) {
-            _connectionState.value = ConnectionState.Error("Bluetooth-Berechtigung in den Android-App-Einstellungen erlauben")
+            _connectionState.value = ConnectionState.Error("Allow Bluetooth permission in Android app settings")
             return
         }
         if (bluetoothAdapter?.isEnabled != true) {
@@ -159,10 +162,12 @@ class BluetoothManager(private val context: Context) {
             .build()
 
         bluetoothLeScanner?.startScan(null, settings, scanCallback)
+        scanRunning = true
     }
 
     fun stopScanning() {
-        if (hasBlePermission()) bluetoothLeScanner?.stopScan(scanCallback)
+        if (scanRunning && hasBlePermission()) bluetoothLeScanner?.stopScan(scanCallback)
+        scanRunning = false
         if (_connectionState.value == ConnectionState.Scanning) {
             _connectionState.value = ConnectionState.Disconnected
         }
@@ -170,13 +175,13 @@ class BluetoothManager(private val context: Context) {
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val deviceName = result.device.name
+            val deviceName = result.scanRecord?.deviceName ?: result.device.name
             val deviceAddress = result.device.address
 
             val isWhc06Active = _connectedDeviceType.value == DeviceType.WEIHENG_WHC06 || pendingDevice?.type == DeviceType.WEIHENG_WHC06
             val isExpectedDevice = pendingDevice != null && deviceAddress == pendingDevice?.address
 
-            if (isWhc06Active && isExpectedDevice) {
+            if (isWhc06Active && isExpectedDevice && whc06Service?.processAdvertisement(result) == true) {
                 if (_connectionState.value == ConnectionState.Reconnecting || _connectionState.value == ConnectionState.Connecting) {
                     _connectionState.value = ConnectionState.Connected
                     _connectedDeviceName.value = pendingDevice?.name ?: "WH-C06"
@@ -184,7 +189,6 @@ class BluetoothManager(private val context: Context) {
                     retryCount = 0
                     cancelRetryTimer()
                 }
-                whc06Service?.processAdvertisement(result)
             }
 
             if (deviceName != null && deviceName.isNotBlank()) {
@@ -215,7 +219,12 @@ class BluetoothManager(private val context: Context) {
             }
         }
 
+        override fun onBatchScanResults(results: MutableList<ScanResult>) {
+            results.forEach { onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, it) }
+        }
+
         override fun onScanFailed(errorCode: Int) {
+            scanRunning = false
             _connectionState.value = ConnectionState.Error("Scan failed: $errorCode")
         }
     }
@@ -243,6 +252,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     private fun connectWHC06(device: ForceDevice) {
+        whc06Service?.stop()
         whc06Service = WHC06Service().apply {
             assumeHardwareIsLbs = hardwareUnitIsLbs
             onForceSample = { weight, timestamp -> this@BluetoothManager.onForceSample?.invoke(weight, timestamp) }
@@ -260,7 +270,7 @@ class BluetoothManager(private val context: Context) {
 
         whc06Service?.start()
 
-        _connectionState.value = ConnectionState.Connected
+        _connectionState.value = ConnectionState.Connecting
         _connectedDeviceName.value = device.name
         _connectedDeviceType.value = device.type
         _connectedDeviceAddress.value = device.address
@@ -270,9 +280,16 @@ class BluetoothManager(private val context: Context) {
         stopScanning()
 
         bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
-        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES).setReportDelay(0).build()
         val filter = ScanFilter.Builder().setDeviceAddress(device.address).build()
+        if (bluetoothLeScanner == null) {
+            _connectionState.value = ConnectionState.Error("Bluetooth scanner unavailable")
+            whc06Service?.stop()
+            return
+        }
         bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
+        scanRunning = true
     }
 
     fun disconnect(preserveAutoReconnect: Boolean = false) {

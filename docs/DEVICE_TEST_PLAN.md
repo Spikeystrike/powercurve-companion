@@ -1,17 +1,21 @@
-# Hardware-Abnahme (noch ausstehend)
+# Device validation (hardware checks pending)
 
-Für Tindeq Progressor, PitchSix Force Board und WH-C06 jeweils auf einem echten Android-Telefon prüfen:
+For Tindeq Progressor, PitchSix Force Board and WH-C06, test on a real Android phone:
 
-- Erstinstallation, BLE-Rechte erlauben/ablehnen, Bluetooth aus/ein, Scannen, Verbinden und erneutes Verbinden.
-- 5 Sekunden unbelastete Kalibrierung; bekannte Last aufbringen. Angezeigte kg mit Referenzlast vergleichen. Bei WH-C06 kg/lb am Gerät umschalten: Anzeigeeinheit der App darf die interne Messung nicht verfälschen.
-- In Powercurve anmelden, Timer konfigurieren, Satz starten. Countdown und Pause dürfen bei Nullkraft keine Rep beenden.
-- Mindestens 1 Sekunde 20 kg halten; bei Einstellung 50 % / 250 ms auf 9 kg ablassen. Genau eine Rep endet, Powercurve startet die Pause. 12 kg müssen weiterlaufen.
-- Kurzer Ausreißer, kurze Entlastung, einzelner hoher Messwert; keine verfrühte Auslösung.
-- Sensor ausschalten oder außer Reichweite bringen: kein künstlicher Nullwert, kein Auto-Ende. Nach Rückkehr erst mit stabiler Belastung wieder scharfstellen.
-- Gerät während einer Rep wechseln. Nächste Rep darf keinen Spitzenwert der vorherigen übernehmen.
-- Manuell End rep tippen, direkt danach Messwerte senden: nächste Rep wird nicht versehentlich beendet.
-- App in Hintergrund, Bildschirm sperren, zurückkehren: keine Hintergrund-Auslösung und kein nachgeholter Klick.
-- Satz in Powercurve speichern; nach Neuladen die gespeicherte Session prüfen. Lokale Kraftkurvendaten sind getrennt von der Serversession.
-- Rotation/Neustart, langsames Netz, Netzverlust, abgelaufene Anmeldung: Status verständlich, manuelles Training weiterhin kontrollierbar.
+- First installation, permission allow/deny, Bluetooth off/on, discovery, connection and reconnection.
+- Five seconds of unloaded calibration, followed by a known load. Compare displayed kg against the reference.
+- WH-C06: verify Connected appears only after readings. Test kg/lb modes on the scale and the fallback unit for firmware without a unit code. Changing app display units must not change internal kg readings.
+- Return from Settings several times: the measurement stream must continue without scan failures.
+- Turn the scale off: after 15 seconds the app must leave Connected. Turn it on: readings should resume. No artificial zero-force sample or auto-end may be generated.
+- Sign in to Powercurve. Change Weight in setup, clear it, use a decimal comma and switch website units. The target must follow the field and active set, not a previous manual preference. Test consecutive sets with different weights.
+- Countdown and rest must not end a rep at zero force.
+- Hold 20 kg for at least one second, then lower to 9 kg with 50% / 250 ms settings. Exactly one rep should end; 12 kg should keep it running.
+- Test a brief spike, a short unloading and a single high reading: no premature completion.
+- After a signal gap, require stable loading again. Switching devices must not carry the previous rep's peak into the next rep.
+- End a rep manually and immediately send samples: the next rep must not end accidentally.
+- Background the app or lock the screen: no background or delayed auto-end action.
+- Save a session in Powercurve and verify it after reload. Local force data is separate from the server session.
+- Rotation, restart, slow/offline network and expired sign-in: status should remain understandable.
+- Inspect all native labels, errors and settings for English text.
 
-Automatisierte Tests validieren die deterministischen Bestandteile. Sie ersetzen weder Firmware-Kompatibilitätstests noch einen angemeldeten Ende-zu-Ende-Test auf dem produktiven Powercurve-Konto.
+Automated tests cover deterministic behavior; they do not replace firmware compatibility or authenticated end-to-end tests against the production backend.

@@ -36,7 +36,7 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
             }
             fun install(view: WebView?, url: String?) {
                 if (trusted(url) && supportsBridge) view?.evaluateJavascript(JavaScriptBridge.install(context), null)
-                else if (!supportsBridge) bridge.invalidate("Android System WebView aktualisieren, um Automatik zu nutzen")
+                else if (!supportsBridge) bridge.invalidate("Update Android System WebView to enable auto-end")
             }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -61,7 +61,7 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                     install(view, url)
                 }
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                    if (request?.isForMainFrame == true) bridge.invalidate("Powercurve nicht erreichbar – Netzwerk prüfen und neu laden")
+                    if (request?.isForMainFrame == true) bridge.invalidate("Powercurve is unavailable — check your connection and reload")
                 }
                 // Default SSL handling cancels invalid certificates.
             }

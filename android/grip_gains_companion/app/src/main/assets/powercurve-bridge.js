@@ -21,11 +21,21 @@
       const label = text(el.querySelector('span'));
       fields[label] = text(el.querySelector('strong'));
     });
+    const weightInput = document.querySelector('.timerSetupGrid input[aria-label^="Weight ("]');
+    let weight = fields.Weight || null;
+    if (phase === 'setup') {
+      weight = null;
+      if (weightInput && weightInput.getAttribute('aria-invalid') !== 'true') {
+        const unit = /^Weight \((kg|lbs?)\)$/i.exec(weightInput.getAttribute('aria-label') || '')?.[1];
+        const value = weightInput.value.trim().replace(',', '.');
+        if (unit && /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) && Number(value) > 0) weight = Number(value) + ' ' + unit;
+      }
+    }
     const seconds = Number(text(face?.querySelector('strong')));
     return {
       phase, active, repKey: generation + ':' + text(face?.querySelector('p')),
       seconds: Number.isFinite(seconds) ? seconds : null,
-      weight: fields.Weight || null, gripper: fields.Gripper || null, side: fields.Side || null,
+      weight, gripper: fields.Gripper || null, side: fields.Side || null,
       targetDuration: /^\d+s$/.test(fields['Estimated hold'] || '') ? parseInt(fields['Estimated hold'], 10) : null,
       url: location.origin + location.pathname
     };
@@ -46,6 +56,8 @@
   window.PowercurveCompanion = { refresh, endRep };
   // One observer and one heartbeat per document, including SPA navigation.
   new MutationObserver(refresh).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class','disabled'] });
+  document.addEventListener('input', refresh);
+  document.addEventListener('change', refresh);
   setInterval(refresh, 200);
   refresh();
 })();

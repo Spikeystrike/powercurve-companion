@@ -1,50 +1,63 @@
-# Powercurve für Android
+# Powercurve for Android
 
-Android-Companion für **https://powercurve.tantaluspath.com** mit nativen Bluetooth-Gerätetreibern, Live-Kraftkurve und automatischem Ende einer Wiederholung bei Kraftabfall.
+Android companion for **https://powercurve.tantaluspath.com** with native Bluetooth device support, a live force curve and automatic rep completion on a sustained force drop.
 
-## Verwendung
+## Getting started
 
-1. APK installieren (Android 10 oder neuer) und Bluetooth-Berechtigungen erlauben. Bei Android 10/11 muss für BLE-Suche zusätzlich der Standortdienst eingeschaltet sein.
-2. Im eingebetteten Powercurve anmelden. Anmeldung, Trainingseinstellungen und Speichern der Sessions nutzen die echte Powercurve-Website und deren Backend.
-3. Über den Bluetooth-Chip **Tindeq Progressor**, **PitchSix Force Board** oder **Weiheng WH-C06** verbinden. Während der anfänglichen 5-s-Kalibrierung den Sensor entlasten.
-4. Einen Satz im Powercurve-Timer starten. Während einer Rep wird die Kraftkurve aufgeklappt. Gelbe Linie: Powercurve-Zielgewicht. Anzeige in kg oder lb; intern immer kg.
-5. Unter Settings → Advanced die Automatik, den prozentualen Kraftabfall (10–80 %) und die Bestätigungszeit (100–1000 ms) einstellen.
-6. Nach dem Satz in Powercurve **Save session** drücken. Die App klickt diesen Button nicht automatisch.
+1. Install the APK on Android 10 or newer and allow Bluetooth permissions. Android 10/11 also requires location services for BLE discovery.
+2. Sign in to Powercurve inside the app. Training setup and session saving use the Powercurve website and its backend.
+3. Select a **Tindeq Progressor**, **PitchSix Force Board** or **Weiheng WH-C06** from the Bluetooth menu. Keep the sensor unloaded during the initial five-second calibration.
+4. Enter the weight in Powercurve's **Weight** field. The app's target indicator, graph line and target feedback follow this field and the active set's weight. Old manual overrides and the former 20 kg default no longer replace it. Empty or invalid input means no target.
+5. Start a set. The live force curve is displayed during a rep. App display units may be kg or lb; internal values are kg.
+6. Configure **Settings → Advanced → End rep on force drop**, the drop percentage (10–80%) and confirmation time (100–1000 ms).
+7. Tap **Save session** in Powercurve after the set. The app does not save the website session automatically.
 
-Standard: Automatik an, **50 % Kraftabfall**, **250 ms Bestätigung**. Nach mindestens 300 ms Belastung ab 3 kg wird die Erkennung aktiv. Referenz ist der gefilterte Spitzenwert der aktuellen Rep, nicht das eingegebene Zielgewicht. Bei 20 kg Spitzenwert beendet eine mindestens 250 ms anhaltende Kraft von höchstens 10 kg die Rep. Ein Median aus drei Messwerten unterdrückt isolierte Spitzen/Ausreißer. Die Messrate des Geräts beeinflusst die tatsächliche Reaktionszeit.
+## WH-C06 readings
 
-Die Automatik wirkt nur auf eine aktive, sichtbare Wiederholung. Countdown, Pause, Satzende, fehlende Messwerte, veralteter Timerstatus und Verbindungsabbrüche lösen kein Rep-Ende aus. Nach einer Messlücke über 1,5 s muss erneut stabile Belastung anliegen. Im Hintergrund ist die Automatik pausiert. Der Powercurve-Timer bleibt für Zeitführung und Session-Speicherung verantwortlich.
+The WH-C06 broadcasts measurements in BLE advertisements; selecting it does not establish a GATT measurement connection. The app now waits for a decoded measurement before showing **Connected**. No valid readings for 15 seconds changes the state to **Reconnecting** while it keeps listening.
 
-## Backend und Daten
+Version 0.1.2 accepts measurement payloads from the selected scale even when its firmware uses a different manufacturer ID or omits a recognized unit code. Valid kg/lb/stone/jin codes are converted to kg. For firmware without a valid unit code, **WH-C06 fallback unit: pounds** selects the scale's unit: off = kg, on = lb. Set it to match the physical scale. This setting is independent of the app's display unit.
 
-Die App lädt ausschließlich Powercurve in der eingebetteten WebView. Externe Links öffnen im Browser. Die native Nachrichtenbrücke ist auf den Powercurve-Ursprung und das Hauptfenster beschränkt. Es werden keine Passwörter ausgelesen und keine undokumentierten Schreib-APIs angesprochen.
+Reopening the screen no longer starts a duplicate measurement scan. If readings still do not arrive, open the app's logs: the first rejected packet reports manufacturer IDs and payload lengths, and successful reception is logged. Hardware verification with the user's scale remains necessary.
 
-Die Integration erkennt die bestehenden Powercurve-Timerzustände und betätigt bei Kraftabfall dessen **End rep**-Button. Damit gelten die vorhandenen Regeln zur Zeitmessung und Speicherung. Pro Rep ist nur ein automatischer Klick möglich; ein Schlüssel schützt vor verspäteten Aktionen auf der nächsten Rep. Falls sich die Web-Oberfläche ändert, wird nicht auf beliebige ähnliche Buttons ausgewichen. Die Statuszeile zeigt eine fehlende Anbindung an.
+## Automatic rep completion
 
-**Roh-Kraftkurven werden nicht zum Server hochgeladen.** Die übernommenen lokalen Verlaufsfunktionen speichern Daten auf dem Telefon; die normale Powercurve-Session speichert die von der Website vorgesehenen Werte. Ein serverseitiges Speichern kompletter Kraftkurven benötigt eine abgestimmte Backend-Erweiterung.
+Defaults: enabled, **50% force drop**, **250 ms confirmation**. Detection arms after at least 300 ms of load at or above 3 kg. Its reference is the filtered peak force of the current rep. For example, a sustained drop from a 20 kg peak to 10 kg or below ends the rep. A three-sample median rejects isolated outliers; device sampling rate affects response time.
 
-## Build
+The target weight guides the graph and target feedback. The force-drop percentage remains relative to the actual rep peak.
 
-Android Studio mit JDK 17, Android SDK 36 und Build Tools 36.0.0. Projektordner: `android/grip_gains_companion` (interner Paketname aus der MIT-Basis beibehalten). Eigenständige Installations-ID: `com.tantaluspath.powercurve`.
+Auto-end acts only on a visible, active rep. Countdown, rest, set completion, missing measurements, stale timer state and disconnections cannot trigger it. A measurement gap over 1.5 seconds requires stable loading again. Auto-end pauses in the background. Powercurve remains responsible for timing and session saving.
+
+## Backend and data
+
+The embedded WebView loads Powercurve. External links open in the browser. The native message bridge is restricted to the Powercurve origin and main frame. It does not read passwords or call undocumented write APIs.
+
+On a force drop, the integration clicks the existing **End rep** button at most once per rep. A rep key prevents delayed actions from affecting the next rep. Unrecognized timer states disable the action and appear in the status line.
+
+**Raw force curves are not uploaded to the server.** Local history stays on the phone; Powercurve saves the values supported by its website. Uploading complete force curves would require a coordinated backend extension.
+
+## Build and tests
+
+Use JDK 17, Android SDK 36 and Build Tools 36.0.0. Project directory: `android/grip_gains_companion`. Application ID: `com.tantaluspath.powercurve`.
 
 ```sh
 cd android/grip_gains_companion
 ./gradlew :app:assembleDebug :app:testDebugUnitTest
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. Debug-APK zum Testen; für dauerhafte Updates/Play Store einen eigenen, sicher verwahrten Release-Schlüssel verwenden. GitHub Actions baut die Debug-APK und stellt sie als Artefakt bereit.
+APK: `app/build/outputs/apk/debug/app-debug.apk`. Debug APKs are for testing; use a securely retained release key for long-term updates or Play Store distribution. The GitHub Actions workflow also builds an APK when account limits allow it.
 
-Tests für Kraftabfall, WH-C06-Einheiten und DOM-Anbindung ohne Android-Gerät (JDK 17 + Node.js):
+Standalone force-drop, WH-C06 decoder and DOM bridge tests require JDK 17 and Node.js:
 
 ```sh
 bash tests/run.sh
 ```
 
-## Grundlage / Lizenz
+## Credits and license
 
-MIT-Lizenz, siehe [LICENSE](LICENSE) und [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT license: see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-- Android-Grundlage: [bdrmakes/grip-gains-isotonic-companion](https://github.com/bdrmakes/grip-gains-isotonic-companion), Commit `467ac80a29e21a0cb616e37613ea4cbeb3f48603`.
-- Referenz für aktive-Rep-/Kraftabfall-Verhalten und WH-C06: [jakemcc/grip_gains_companion](https://github.com/jakemcc/grip_gains_companion), Commit `fad9bddfd7262f9541851441fbdb845c42581c22`.
+- Android foundation: [bdrmakes/grip-gains-isotonic-companion](https://github.com/bdrmakes/grip-gains-isotonic-companion), commit `467ac80a29e21a0cb616e37613ea4cbeb3f48603`.
+- Rep failure and WH-C06 reference: [jakemcc/grip_gains_companion](https://github.com/jakemcc/grip_gains_companion), commit `fad9bddfd7262f9541851441fbdb845c42581c22`.
 
-Die Gerätetreiber stammen aus diesen Projekten. Die neue Timer-Brücke und prozentuale Abfallerkennung sind Anpassungen für Powercurve. Eine praktische Abnahme mit allen drei Geräten steht aus; siehe [Testplan](docs/DEVICE_TEST_PLAN.md).
+The Bluetooth drivers derive from these projects. The timer bridge and percentage-based force-drop detection are Powercurve adaptations. See the [device test plan](docs/DEVICE_TEST_PLAN.md) for remaining hardware validation.

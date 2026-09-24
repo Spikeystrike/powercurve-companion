@@ -181,7 +181,6 @@ class MainActivity : ComponentActivity() {
             val allIsoSessions by sessionRepository.getAllIsoSessions().collectAsState(initial = emptyList())
             val recentGrippers = remember(allIsoSessions) { allIsoSessions.map { it.gripperType }.distinct().sorted() }
 
-            var isoOverrideWeight by remember { mutableStateOf<Double?>(null) }
 
             val connectionState by bluetoothManager.connectionState.collectAsState()
             val isConnected = connectionState == ConnectionState.Connected
@@ -192,31 +191,28 @@ class MainActivity : ComponentActivity() {
 
             val useLbs by preferencesRepository.useLbs.collectAsState(initial = false)
 
-            LaunchedEffect(useLbs) {
-                bluetoothManager.setHardwareUnitIsLbs(useLbs)
+            val whc06FallbackLbs by preferencesRepository.whc06FallbackLbs.collectAsState(initial = false)
+            LaunchedEffect(whc06FallbackLbs) {
+                bluetoothManager.setHardwareUnitIsLbs(whc06FallbackLbs)
             }
 
             val showForceGraph by preferencesRepository.showForceGraph.collectAsState(initial = true)
             val forceGraphWindow by preferencesRepository.forceGraphWindow.collectAsState(initial = 5)
             val enableTargetWeight by preferencesRepository.enableTargetWeight.collectAsState(initial = true)
-            val useManualTarget by preferencesRepository.useManualTarget.collectAsState(initial = false)
             val weightTolerance by preferencesRepository.weightTolerance.collectAsState(initial = 0.5)
             val enableHaptics by preferencesRepository.enableHaptics.collectAsState(initial = true)
             val enableCalibration by preferencesRepository.enableCalibration.collectAsState(initial = true)
             val enableTargetSound by preferencesRepository.enableTargetSound.collectAsState(initial = true)
 
-            val effectiveTargetWeight = if (isBasicTimerPage || useManualTarget) {
-                currentManualWeight
-            } else {
-                isoOverrideWeight ?: webWeight ?: (if (useLbs) 20.0 / 2.20462 else 20.0)
-            }
+            // Powercurve's Weight field is authoritative; never reuse a stale override.
+            val effectiveTargetWeight = if (isBasicTimerPage) currentManualWeight else webWeight
 
             val currentForce by progressorHandler.currentForce.collectAsState()
             var previousForce by remember { mutableDoubleStateOf(0.0) }
             var hasHitTargetThisRep by remember { mutableStateOf(false) }
 
-            LaunchedEffect(currentForce) {
-                if (effectiveTargetWeight > 0.0 && enableTargetWeight) {
+            LaunchedEffect(currentForce, effectiveTargetWeight) {
+                if (effectiveTargetWeight != null && effectiveTargetWeight > 0.0 && enableTargetWeight) {
                     val targetLowerBound = effectiveTargetWeight - weightTolerance
 
                     if (currentForce >= targetLowerBound && previousForce < targetLowerBound) {
@@ -268,7 +264,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            var weightInputText by remember { mutableStateOf(effectiveTargetWeight.toString()) }
+            var weightInputText by remember { mutableStateOf(effectiveTargetWeight?.toString() ?: "") }
             val baseContext = LocalContext.current
             val darkContext = remember(baseContext) {
                 android.view.ContextThemeWrapper(baseContext, android.R.style.Theme_Material_NoActionBar)
@@ -379,12 +375,13 @@ class MainActivity : ComponentActivity() {
                                     onSettingsTap = { navController.navigate("settings") },
                                     onHistoryTap = { navController.navigate("history") },
                                     onSetManualWeightTap = {
-                                        val isDefault = Math.abs(effectiveTargetWeight - 20.0) < 0.1 || Math.abs(effectiveTargetWeight - (20.0 / 2.20462)) < 0.1
-                                        weightInputText = if (isDefault) "20" else {
-                                            val displayWeight = if (useLbs) effectiveTargetWeight * 2.20462 else effectiveTargetWeight
-                                            String.format(java.util.Locale.US, "%.1f", displayWeight)
+                                        if (isBasicTimerPage) {
+                                            val weight = effectiveTargetWeight ?: currentManualWeight
+                                            weightInputText = String.format(java.util.Locale.US, "%.1f", if (useLbs) weight * 2.20462 else weight)
+                                            showWeightPrompt = true
+                                        } else {
+                                            lifecycleScope.launch { snackbarHostState.showSnackbar("Set the target in Powercurve's Weight field before starting the set.") }
                                         }
-                                        showWeightPrompt = true
                                     }
                                 )
                             }
@@ -464,7 +461,7 @@ class MainActivity : ComponentActivity() {
                                             currentManualWeight = internalKg
                                             lifecycleScope.launch { preferencesRepository.setManualTargetWeight(internalKg); preferencesRepository.setUseManualTarget(true) }
                                         } else {
-                                            isoOverrideWeight = internalKg
+                                            // Powercurve targets are read from its Weight field.
                                         }
                                     }
                                     showWeightPrompt = false
@@ -591,7 +588,7 @@ class MainActivity : ComponentActivity() {
                     if (!isoSessionManager.isRepActive) isoSessionManager.startRep()
                 } else {
                     if (isoSessionManager.isRepActive) {
-                        val fallbackWeight = webViewBridge.targetWeight.value ?: currentManualWeight
+                        val fallbackWeight = webViewBridge.targetWeight.value
                         val targetDur = webViewBridge.targetDuration.value
                         isoSessionManager.endRep(fallbackWeight, targetDur)
 
@@ -629,7 +626,7 @@ class MainActivity : ComponentActivity() {
     private fun processSessionEnd(onAutoSaveIso: () -> Unit) {
         // ALWAYS launch a coroutine to grab fresh preference values instead of capturing stale ones
         lifecycleScope.launch {
-            val fallbackWeight = webViewBridge.targetWeight.value ?: currentManualWeight
+            val fallbackWeight = webViewBridge.targetWeight.value
             if (isoSessionManager.isRepActive) isoSessionManager.endRep(fallbackWeight)
 
             val enableAnalytics = preferencesRepository.enableAnalytics.first()
@@ -701,7 +698,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         trainingVisible = false
         forceDropDetector.reset()
-        if (::webViewBridge.isInitialized) webViewBridge.invalidate("Automatik pausiert")
+        if (::webViewBridge.isInitialized) webViewBridge.invalidate("Auto-end paused")
         super.onPause()
     }
 

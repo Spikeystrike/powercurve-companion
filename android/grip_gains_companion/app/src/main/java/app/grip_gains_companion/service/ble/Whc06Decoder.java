@@ -1,18 +1,20 @@
 package app.grip_gains_companion.service.ble;
 
-/** Manufacturer 0x0100 payload (Android has removed the two-byte manufacturer ID). */
+/** Payload after Android removes the two-byte manufacturer ID. Values are returned in kg. */
 public final class Whc06Decoder {
     private Whc06Decoder() {}
-    public static Double decode(byte[] data) {
-        if (data == null || data.length < 15) return null;
+    public static Double decode(byte[] data) { return decode(data, false); }
+    public static Double decode(byte[] data, boolean fallbackLbs) {
+        if (data == null || data.length < 12) return null;
         int raw = (short) (((data[10] & 255) << 8) | (data[11] & 255));
         double value = raw / 100.0;
-        switch (data[14] & 15) {
-            case 1: return value;                 // kg
-            case 2: return value * 0.45359237;    // lb
-            case 3: return value * 6.35029318;    // stone
-            case 4: return value * 0.5;           // jin
-            default: return null;                // unknown unit: never guess
+        int unit = data.length > 14 ? data[14] & 15 : 0;
+        switch (unit) {
+            case 1: return value;
+            case 2: return value * 0.45359237;
+            case 3: return value * 6.35029318;
+            case 4: return value * 0.5;
+            default: return fallbackLbs ? value * 0.45359237 : value;
         }
     }
 }
