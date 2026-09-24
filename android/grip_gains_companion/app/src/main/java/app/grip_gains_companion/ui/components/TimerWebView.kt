@@ -11,6 +11,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import app.grip_gains_companion.config.AppConstants
+import app.grip_gains_companion.service.web.BridgeInstallationTag
 import app.grip_gains_companion.service.web.JavaScriptBridge
 import app.grip_gains_companion.service.web.WebViewBridge
 
@@ -21,13 +22,13 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
             (parent as? ViewGroup)?.removeView(this)
             bridge.setWebView(this)
             val supportsBridge = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
-            if (supportsBridge && getTag(android.R.id.custom) != true) {
+            if (supportsBridge && !BridgeInstallationTag.isInstalled(this)) {
                 WebViewCompat.addWebMessageListener(this, "PowercurveNative", setOf(AppConstants.POWERCURVE_ORIGIN)) { _, message, origin, mainFrame, _ ->
                     if (mainFrame && origin.toString().trimEnd('/') == AppConstants.POWERCURVE_ORIGIN) {
                         message.data?.let { bridge.onSnapshot(it) }
                     }
                 }
-                setTag(android.R.id.custom, true)
+                BridgeInstallationTag.markInstalled(this)
             }
             fun trusted(url: String?): Boolean {
                 val uri = url?.let(Uri::parse) ?: return false

@@ -13,8 +13,8 @@ android {
         applicationId = "com.tantaluspath.powercurve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -34,6 +34,9 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+    }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
     buildFeatures {
         compose = true
@@ -69,6 +72,7 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation("org.robolectric:robolectric:4.14.1")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
