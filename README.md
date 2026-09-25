@@ -22,9 +22,9 @@ Reopening the screen no longer starts a duplicate measurement scan. If readings 
 
 ## Automatic rep completion
 
-Defaults: enabled, **50% force drop**, **250 ms confirmation**. Detection arms after at least 300 ms of load at or above 3 kg. Its reference is the filtered peak force of the current rep. For example, a sustained drop from a 20 kg peak to 10 kg or below ends the rep. A three-sample median rejects isolated outliers; device sampling rate affects response time.
+Defaults: enabled, **50% force drop**, **250 ms confirmation**. Detection arms after at least 300 ms of load at or above **90% of Target Weight**. The completion limit is **Target Weight × (1 − drop percentage)**. For a 20 kg target and 50% drop, it arms at 18 kg and ends the rep at 10 kg or below after the confirmation time. Peak force does not affect either limit. A three-sample median rejects isolated outliers; device sampling rate affects response time.
 
-The target weight guides the graph and target feedback. The force-drop percentage remains relative to the actual rep peak.
+The same Powercurve Weight field controls the graph, target feedback, arming threshold and force-drop limit. There is no fixed 3 kg minimum. A missing, zero, negative or invalid target disables auto-end. Changing the target requires a fresh stable load before rearming.
 
 Auto-end acts only on a visible, active rep. Countdown, rest, set completion, missing measurements, stale timer state and disconnections cannot trigger it. A measurement gap over 1.5 seconds requires stable loading again. Auto-end pauses in the background. Powercurve remains responsible for timing and session saving.
 

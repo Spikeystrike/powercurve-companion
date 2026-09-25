@@ -1,5 +1,12 @@
 # Validation
 
+## 0.1.3
+
+- Target-based force-drop detector: 440 assertions passed, including 90% arming, targets below 3 kg, sustained overshoot, changed/invalid targets, confirmation timing, outliers, disconnect gaps and one action per rep.
+- Existing WH-C06 decoder: 31 assertions passed. DOM bridge: 7 tests passed.
+- Android build and runtime tests: pending for this revision.
+- Physical hardware acceptance remains pending.
+
 ## 0.1.2
 
 - Force-drop detector: 174 assertions passed.

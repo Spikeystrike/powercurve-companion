@@ -337,8 +337,8 @@ fun SettingsScreen(
                             Switch(checked = autoFailRep, onCheckedChange = { coroutineScope.launch { preferencesRepository.setAutoFailRep(it) } })
                         }
                         if (autoFailRep) {
-                            Text("After 300 ms of stable load at or above 3 kg, end the rep on a sustained drop from its peak force. Only active while a rep is running in the visible timer.", style = MaterialTheme.typography.bodySmall)
-                            Text("Force drop: ${(failThreshold * 100).roundToInt()} %")
+                            Text("Arms after 300 ms at or above 90% of Target Weight. Ends the rep on a sustained drop below the target-based limit. A valid Target Weight and an active, visible rep are required.", style = MaterialTheme.typography.bodySmall)
+                            Text("Drop from Target Weight: ${(failThreshold * 100).roundToInt()} %")
                             Slider(value = failThreshold.toFloat().coerceIn(0.1f, 0.8f), onValueChange = {
                                 coroutineScope.launch { preferencesRepository.setFailThreshold(it.toDouble()) }
                             }, valueRange = 0.1f..0.8f, steps = 13)
@@ -347,7 +347,7 @@ fun SettingsScreen(
                             Slider(value = holdMs.toFloat(), onValueChange = {
                                 coroutineScope.launch { preferencesRepository.setForceDropHoldMs((it / 50).roundToInt() * 50) }
                             }, valueRange = 100f..1000f, steps = 17)
-                            Text("Example: a 50% drop from a 20 kg peak ends the rep at 10 kg or below. Brief spikes and disconnections do not end a rep.", style = MaterialTheme.typography.bodySmall)
+                            Text("Example: Target Weight 20 kg, drop 50%: arms at 18 kg and ends the rep at 10 kg or below after the confirmation time. Peak force does not change these limits.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
 

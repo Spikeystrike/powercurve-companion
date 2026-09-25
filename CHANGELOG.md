@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3
+
+- Base automatic rep completion on Target Weight instead of peak force.
+- Arm after 300 ms at or above 90% of Target Weight, replacing the fixed 3 kg minimum.
+- Require a valid positive target; rearm after target changes or measurement gaps.
+- Retain the configured drop percentage, confirmation time, outlier filter and active-rep guards.
+- Update English settings, documentation and regression tests. Version code 5.
+
 ## 0.1.2
 
 - WH-C06: accept measurement payloads with varying manufacturer IDs and missing/unknown unit codes; use an explicit fallback scale unit independent of display units.

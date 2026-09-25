@@ -145,7 +145,8 @@ class MainActivity : ComponentActivity() {
                 val active = trainingVisible && autoEndEnabled && webViewBridge.isFreshActive &&
                     bluetoothManager.connectionState.value == ConnectionState.Connected && !progressorHandler.calibrating
                 if (forceDropDetector.sample(measuredKg, android.os.SystemClock.elapsedRealtime(),
-                        webViewBridge.repKey, active, forceDropFraction, forceDropHoldMs)) {
+                        webViewBridge.repKey, active, webViewBridge.targetWeight.value ?: Double.NaN,
+                        forceDropFraction, forceDropHoldMs)) {
                     hapticManager.warning()
                     webViewBridge.clickFailButton()
                 }
