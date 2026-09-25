@@ -365,7 +365,7 @@ fun MainScreen(
                                     },
                                     label = {
                                         Text(
-                                            text = if (isConnected) displayName else "No Scale",
+                                            text = if (isConnected) displayName else connectionState.displayText,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1,
                                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis

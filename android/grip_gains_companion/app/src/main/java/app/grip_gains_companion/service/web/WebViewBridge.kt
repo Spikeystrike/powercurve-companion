@@ -102,7 +102,7 @@ class WebViewBridge {
     fun clickEndSessionButton() { _status.value = "To end the set, press and hold the button in Powercurve" }
 
     private fun parseWeight(text: String): Double? {
-        val match = Regex("([0-9]+(?:[.,][0-9]+)?)\\s*(kg|lbs?|pounds?)", RegexOption.IGNORE_CASE).find(text) ?: return null
+        val match = Regex("([0-9]+(?:[.,][0-9]+)?)\\s*(kg|lbs?|pounds?)", RegexOption.IGNORE_CASE).matchEntire(text.trim()) ?: return null
         val value = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
         return (if (match.groupValues[2].lowercase() == "kg") value else value * 0.45359237).takeIf { it.isFinite() && it > 0 }
     }
