@@ -5,7 +5,9 @@
 - Force-drop detector: 174 assertions passed.
 - WH-C06 decoder: 31 assertions passed, including short/missing-unit packets, explicit fallback units, recognized units and malformed lengths.
 - Powercurve DOM bridge: 7 tests passed, including live Weight input changes, decimal commas, units, invalid/empty values and consecutive set targets.
-- Android build and runtime regression tests: pending for this revision.
+- Android build: `:app:assembleDebug :app:testDebugUnitTest` completed successfully.
+- Android runtime tests (Robolectric API 34): 10 passed, zero failures/errors: 3 WH-C06 advertisement/timeout/unit tests, 3 target weight tests, 3 startup regression tests and 1 existing example test.
+- APK metadata: versionCode 4 / versionName 0.1.2, Android 10 minimum. APK signature verified.
 - Physical WH-C06 reception and an authenticated training session on the user's phone remain unverified. See DEVICE_TEST_PLAN.md.
 
 ## 0.1.1
