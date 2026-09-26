@@ -48,7 +48,8 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                     return true
                 }
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                    bridge.invalidate()
+                    bridge.offline.pageFailed = false
+                    if (bridge.offlineEndRep == null) bridge.invalidate()
                     url?.let(bridge::updateUrl)
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -61,9 +62,19 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                     install(view, url)
                 }
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                    if (request?.isForMainFrame == true) bridge.invalidate("Powercurve is unavailable — check your connection and reload")
+                    if (request?.isForMainFrame == true) {
+                        bridge.offline.pageFailed = true
+                        if (bridge.offlineEndRep == null) bridge.invalidate("Offline timer available")
+                    }
                 }
-                // Default SSL handling cancels invalid certificates.
+                override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, response: WebResourceResponse?) {
+                    if (request?.isForMainFrame == true && (response?.statusCode ?: 0) >= 400) bridge.offline.pageFailed = true
+                }
+                override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
+                    handler?.cancel()
+                    bridge.offline.pageFailed = true
+                }
+                // Invalid certificates are never bypassed.
             }
             if (url == null) loadUrl(AppConstants.POWERCURVE_ORIGIN + "/timer")
         }

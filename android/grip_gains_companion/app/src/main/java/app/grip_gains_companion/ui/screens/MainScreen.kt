@@ -76,6 +76,9 @@ fun MainScreen(
     onHistoryTap: () -> Unit,
     onSetManualWeightTap: () -> Unit
 ) {
+    val offline = webViewBridge.offline
+    val offlineRevision by offline.revision.collectAsState()
+    val offlineTimer = remember(offlineRevision) { offline.showTimer }
     val context = LocalContext.current
     val isToolbarVisible by webViewBridge.isToolbarVisible.collectAsState()
     val isLive by webViewBridge.buttonEnabled.collectAsState()
@@ -209,8 +212,8 @@ fun MainScreen(
         }
     }
 
-    LaunchedEffect(isToolbarVisible, showForceGraph, isLive) {
-        if (isLive && showForceGraph) {
+    LaunchedEffect(isToolbarVisible, showForceGraph, isLive, offlineTimer) {
+        if ((isLive || offlineTimer) && showForceGraph) {
             sheetHeightPx.animateTo(level2Px, tween(200))
         } else if (!isToolbarVisible) {
             if (sheetHeightPx.value <= level1Px + 20f) {
@@ -275,11 +278,13 @@ fun MainScreen(
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A2231))) {
 
             Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(bottom = with(density) { sheetHeightPx.value.toDp() })) {
+                app.grip_gains_companion.ui.components.OfflineStatus(offline)
                 TimerWebView(
                     bridge = webViewBridge,
                     cachedWebView = cachedWebView,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = if (offlineTimer) Modifier.height(0.dp) else Modifier.weight(1f).fillMaxWidth()
                 )
+                if (offlineTimer) app.grip_gains_companion.ui.components.OfflineTimer(offline, useLbs, Modifier.weight(1f).fillMaxWidth())
             }
 
             Surface(

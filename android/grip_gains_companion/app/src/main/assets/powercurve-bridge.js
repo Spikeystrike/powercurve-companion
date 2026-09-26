@@ -36,6 +36,11 @@
       phase, active, repKey: generation + ':' + text(face?.querySelector('p')),
       seconds: Number.isFinite(seconds) ? seconds : null,
       weight, gripper: fields.Gripper || null, side: fields.Side || null,
+      plannedReps: Number(fields['Target reps']) || 6,
+      completedReps: Array.from(document.querySelectorAll('.timerRepList strong')).map(el => {
+        const m = /^(\d+):(\d{2})$/.exec(text(el));
+        return m ? Number(m[1])*60+Number(m[2]) : 0;
+      }),
       targetDuration: /^\d+s$/.test(fields['Estimated hold'] || '') ? parseInt(fields['Estimated hold'], 10) : null,
       url: location.origin + location.pathname
     };

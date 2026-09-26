@@ -1,10 +1,28 @@
 # Validation
 
+## 0.1.4
+
+Local validation on 2026-09-26:
+
+- Debug APK and Android test APK built successfully with JDK 17, SDK 36 and Build Tools 36.0.0 (versionCode 6 / versionName 0.1.4).
+- 20 JVM/Robolectric tests passed, including 10 offline tests: durable queue updates, acknowledgement matching, restart recovery, account binding, invalid input, corruption preservation, online/offline set isolation and reception loss during a website set.
+- 18 JavaScript tests passed: 8 timer bridge tests and 10 import tests covering account mismatch, expired login, preflight read failure, import errors, missing form, concurrent submission and reconciliation after a lost acknowledgement.
+- Existing force-drop detector: 440 assertions passed. WH-C06 decoder: 31 assertions passed.
+- Android 13 emulator: 3 instrumented tests passed, including actual atomic storage and a Compose UI flow completing two local sets, checking the pending count, acknowledging them and dismissing the success banner. These tests use isolated app storage and do not upload fabricated training data.
+- Full app launched with emulator Wi-Fi and mobile data disabled. Offline controls and the expanded graph panel rendered without a startup crash; the disconnected-scale message is expected without a BLE sensor.
+- Static lint reports 12 existing errors in unchanged PitchSixService.kt (permission annotations/checks and Bluetooth status constants), plus warnings. No offline-feature lint errors were reported. Lint is not a clean project-wide gate yet.
+- Production authenticated import, real BLE force data and the new version on the user's physical phone remain unverified. Import transport tests simulate the observed production form/read contracts; they do not establish backend acceptance.
+
 ## 0.1.3
 
 - Target-based force-drop detector: 440 assertions passed, including 90% arming, targets below 3 kg, sustained overshoot, changed/invalid targets, confirmation timing, outliers, disconnect gaps and one action per rep.
 - Existing WH-C06 decoder: 31 assertions passed. DOM bridge: 7 tests passed.
-- Android build and runtime tests: pending for this revision.
+- Local Windows validation on 2026-09-25, based on main commit `573c799`: `:app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest` completed successfully using JDK 17.0.11, Android SDK 36 and Build Tools 36.0.0.
+- Android JVM tests: 10 passed, zero failures/errors/skips (including 9 Robolectric tests).
+- APK metadata: application ID `com.tantaluspath.powercurve`, versionCode 5 / versionName 0.1.3, minimum API 29, target API 36. APK signature verified (v2).
+- Debug APK SHA-256: `910f481b2eb948ed7804c63ffd39e8ff72377df172f88b8c40be9560de59c5d3`.
+- Corrected the existing instrumented package identity test to expect the current application ID. It passed on a Samsung SM-G781B running Android 13 (1 instrumented test, zero failures).
+- Installed 0.1.3 on that phone after the user explicitly approved removing the differently signed 0.1.2 installation and its local data. Cold launch succeeded to the Android permission dialog; the app process remained alive and the inspected process log contained no fatal startup exception. Permission handling, signed-in training and physical sensor measurements remain unverified.
 - Physical hardware acceptance remains pending.
 
 ## 0.1.2
@@ -26,5 +44,5 @@
 ## Limits
 
 - GitHub Actions is configured, but earlier runs were blocked before build steps by account billing/spending limits. No billing settings were changed.
-- No physical BLE device acceptance tests, authenticated end-to-end training session, emulator/device UI inspection, release signing or Play Store submission have been performed.
+- No physical BLE device acceptance tests, authenticated end-to-end training session, full device UI inspection, release signing or Play Store submission have been performed. The 0.1.3 physical-device checks cover package identity and startup to the permission dialog only. Version 0.1.4 adds the emulator checks listed above.
 - Supplied APKs are debug-signed test builds. Session saving remains an explicit action in Powercurve.

@@ -131,6 +131,7 @@ class MainActivity : ComponentActivity() {
         bluetoothManager = BluetoothManager(this)
         progressorHandler = ProgressorHandler()
         webViewBridge = WebViewBridge()
+        webViewBridge.offline = app.grip_gains_companion.service.offline.OfflineTraining(this, webViewBridge, lifecycleScope)
         preferencesRepository = PreferencesRepository(this)
         hapticManager = HapticManager(this)
 
@@ -706,6 +707,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(failRepReceiver)
+        webViewBridge.offline.close()
         bluetoothManager.disconnect()
     }
 }

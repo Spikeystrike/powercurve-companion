@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const source = fs.readFileSync('android/grip_gains_companion/app/src/main/assets/powercurve-bridge.js', 'utf8');
 function fixture(origin = 'https://powercurve.tantaluspath.com', ready = true) {
   let phase = 'setup', rep = 1, clicks = 0, observers = 0, intervals = 0;
-  let weight = '20', unit = 'kg', summaryWeight = '20 kg', invalid = false;
+  let weight = '20', unit = 'kg', summaryWeight = '20 kg', invalid = false, completed = [];
   const input = { get value() { return weight; }, getAttribute(name) { return name === 'aria-label' ? `Weight (${unit})` : (invalid ? 'true' : null); } };
   const messages = [];
   const readyCallbacks = [];
@@ -15,10 +15,10 @@ function fixture(origin = 'https://powercurve.tantaluspath.com', ready = true) {
   const window = { PowercurveNative: { postMessage: json => messages.push(JSON.parse(json)) } }; window.top = window;
   const context = vm.createContext({window, location: { origin, pathname: '/timer' },
     document: { body: ready ? {} : null, addEventListener: (event, callback) => { if (event === 'DOMContentLoaded') readyCallbacks.push(callback); }, hidden: false, querySelector: selector => selector.includes('timerSetupGrid') ? input : selector.endsWith('.timerFace') ? face : button,
-      querySelectorAll: () => ['Weight|' + summaryWeight,'Gripper|20 mm','Side|Left'].map(x => ({querySelector: s => ({textContent:x.split('|')[s === 'span' ? 0 : 1]})})) },
+      querySelectorAll: selector => selector === '.timerRepList strong' ? completed.map(textContent => ({textContent})) : ['Weight|' + summaryWeight,'Gripper|20 mm','Side|Left'].map(x => ({querySelector: s => ({textContent:x.split('|')[s === 'span' ? 0 : 1]})})) },
     MutationObserver: class { observe() { observers++; } }, setInterval: () => intervals++ });
   vm.runInContext(source, context);
-  return { window, context, messages, button, readyCallbacks, setPhase(p, r=rep) { phase=p; rep=r; }, setWeight(value, u='kg', bad=false) { weight=value;unit=u;invalid=bad; }, setSummary(value) {summaryWeight=value;}, get clicks() {return clicks;}, counts: () => [observers, intervals] };
+  return { window, context, messages, button, readyCallbacks, setPhase(p, r=rep) { phase=p; rep=r; }, setWeight(value, u='kg', bad=false) { weight=value;unit=u;invalid=bad; }, setSummary(value) {summaryWeight=value;}, setCompleted(value) {completed=value;}, get clicks() {return clicks;}, counts: () => [observers, intervals] };
 }
 test('strict origin guard', () => assert.equal(fixture('https://example.com').window.PowercurveCompanion, undefined));
 test('installer is idempotent across SPA changes', () => {
@@ -68,4 +68,9 @@ test('active set summary replaces setup target; next setup cannot retain old wei
   f.setSummary(''); assert.equal(b.refresh().weight,null);
   f.setPhase('setup'); f.setWeight('25'); assert.equal(b.refresh().weight,'25 kg');
   f.setWeight(''); assert.equal(b.refresh().weight,null);
+});
+
+test('completed website reps retain minutes and seconds for offline capture', () => {
+  const f=fixture();f.setPhase('complete');f.setCompleted(['1:02','0:07']);
+  assert.deepEqual(Array.from(f.window.PowercurveCompanion.refresh().completedReps),[62,7]);
 });

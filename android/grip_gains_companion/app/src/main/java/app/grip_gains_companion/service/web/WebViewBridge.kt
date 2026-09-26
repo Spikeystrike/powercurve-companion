@@ -9,9 +9,14 @@ import org.json.JSONObject
 
 /** Called only from an origin-restricted, main-frame WebMessageListener on the UI thread. */
 class WebViewBridge {
+    lateinit var offline: app.grip_gains_companion.service.offline.OfflineTraining
+    var offlineEndRep: (() -> Unit)? = null
+    private var acceptingOffline = false
+    fun onOfflineSnapshot(raw: String) { acceptingOffline=true; try { onSnapshot(raw) } finally { acceptingOffline=false } }
     private var webView: WebView? = null
     private var heartbeat = 0L
     private var phase = "unavailable"
+    val webSetRunning: Boolean get() = offlineEndRep == null && phase in setOf("countdown", "rep", "rest") && SystemClock.elapsedRealtime() - heartbeat < 1500
     var repKey = ""
         private set
     val isFreshActive: Boolean get() = _buttonEnabled.value && SystemClock.elapsedRealtime() - heartbeat < 1500
@@ -63,6 +68,7 @@ class WebViewBridge {
         }
     }
     fun onSnapshot(raw: String) {
+        if (offlineEndRep != null && !acceptingOffline) return
         if (raw.length > 8192) return
         val data = runCatching { JSONObject(raw) }.getOrNull() ?: return
         val next = data.optString("phase")
@@ -82,6 +88,7 @@ class WebViewBridge {
         _currentUrl.value = data.optString("url")
         if (next == "complete" && phase != "complete") _saveButtonAppeared.value = true
         phase = next
+        if (!acceptingOffline && ::offline.isInitialized) offline.onWebSnapshot(data)
         _status.value = when {
             next == "unavailable" -> "Powercurve: open the timer / sign in"
             next == "rep" && !_buttonEnabled.value -> "Timer not recognized — end the rep manually"
@@ -92,6 +99,7 @@ class WebViewBridge {
         }
     }
     fun clickFailButton() {
+        offlineEndRep?.let { if (isFreshActive) it(); return }
         val key = repKey
         if (!isFreshActive) return
         webView?.evaluateJavascript(JavaScriptBridge.endRep(key)) { result ->

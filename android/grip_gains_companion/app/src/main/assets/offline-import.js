@@ -1,0 +1,71 @@
+/* Offline queue transport: reads account/session state, writes only through Import training data. */
+(function () {
+  'use strict';
+  if (location.origin !== 'https://powercurve.tantaluspath.com' || window !== window.top || window.PowercurveOfflineImport) return;
+  let result = {state: 'idle', account: null, name: ''}, running = false, checked = 0;
+  const auth = async () => {
+    const response = await fetch('/api/auth/me', {credentials:'include', cache:'no-store', headers:{Accept:'application/json'}});
+    if (!response.ok) throw new Error('Sign in to Powercurve to sync saved sets.');
+    const data = await response.json();
+    if (!data.user || data.user.id == null || data.support_session) throw new Error('Sign in to your own Powercurve account to sync.');
+    return data.user;
+  };
+  const sameSession = (s, r) => new Date(s.date_time).getTime() === new Date(r.date_time).getTime()
+    && s.gripper === r.gripper && s.side === r.side && Math.abs(Number(s.weight) - r.weightKg / 0.45359237) < 0.011
+    && JSON.stringify(s.rep_durations) === JSON.stringify(r.reps);
+  async function submit(record) {
+    if (running) return;
+    running = true;
+    result = {...result, state:'checking', id:record.id, message:''};
+    try {
+      const user = await auth();
+      result.account = String(user.id); result.name = user.name || '';
+      if (String(user.id) !== record.owner) throw new Error('Sign in to the account used for these offline sets.');
+      const response = await fetch('/api/curvefit/sessions', {credentials:'include', cache:'no-store', headers:{Accept:'application/json','X-Powercurve-Expected-User-Id':record.owner}});
+      if (!response.ok) throw new Error('Could not verify saved sessions. Retrying when connected.');
+      const sessions = await response.json();
+      if (!Array.isArray(sessions.sessions)) throw new Error('Session verification is unavailable. Saved sets are kept.');
+      if (sessions.sessions.some(s => sameSession(s, record))) {
+        result.state = 'success'; running = false; return;
+      }
+      const panel = document.querySelector('.sessionImportPanel');
+      const input = panel?.querySelector('textarea');
+      const button = panel?.querySelector('button[type="submit"]');
+      if (!input || !button || input.disabled) throw new Error('Waiting for Import training data.');
+      const payload = JSON.stringify({date_time:record.date_time, gripper:record.gripper, side:record.side,
+        weight_lbs:record.weightKg/0.45359237, reps:record.reps});
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,payload);
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+      await new Promise(resolve => setTimeout(resolve,100));
+      if (button.disabled || input.value !== payload) throw new Error('Import form is not ready. Saved sets are kept.');
+      button.click();
+      result.state='importing';
+      const started=Date.now();
+      // A fresh success message, exact result counts and cleared input confirm this submission.
+      while (Date.now()-started < 60000) {
+        await new Promise(resolve=>setTimeout(resolve,250));
+        const message=panel.querySelector('.trainingImportUpdateResult .successMessage')?.textContent?.trim() || '';
+        const error=panel.querySelector('.trainingImportUpdateResult .errorMessage')?.textContent?.trim();
+        if (error) throw new Error(error);
+        if (input.value === '' && /^Imported \d+ sessions?; (merged|updated) \d+; skipped \d+\./.test(message)) {
+          // Confirm the actual row as well: never delete a queued set based only on UI text.
+          const verified=await fetch('/api/curvefit/sessions',{credentials:'include',cache:'no-store',headers:{Accept:'application/json','X-Powercurve-Expected-User-Id':record.owner}});
+          if(!verified.ok) throw new Error('Import confirmation interrupted. Will verify before retrying.');
+          const rows=await verified.json();
+          if(!Array.isArray(rows.sessions) || !rows.sessions.some(s=>sameSession(s,record))) throw new Error('Imported data could not be verified. Saved set retained.');
+          result.state='success';running=false;return;
+        }
+      }
+      throw new Error('Import confirmation timed out. Will verify before retrying.');
+    } catch(error) { result.state='error';result.message=error.message;running=false; }
+  }
+  function poll() {
+    if(!running && Date.now()-checked>15000) {
+      checked=Date.now();
+      auth().then(user=>{result.account=String(user.id);result.name=user.name||'';}).catch(()=>{result.account=null;result.name='';});
+    }
+    return result;
+  }
+  window.PowercurveOfflineImport={poll,submit};
+})();

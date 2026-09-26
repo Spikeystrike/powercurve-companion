@@ -20,3 +20,12 @@ For Tindeq Progressor, PitchSix Force Board and WH-C06, test on a real Android p
 - Inspect all native labels, errors and settings for English text.
 
 Automated tests cover deterministic behavior; they do not replace firmware compatibility or authenticated end-to-end tests against the production backend.
+
+## Offline acceptance
+
+- Sign in once while online, connect the scale, then disable internet (keep Bluetooth enabled). The force graph must keep updating. Complete at least two local sets and verify the pending count.
+- Restart the app without internet: queued sets remain. Interrupt a third set after one rep, restart, then continue or save the recovered completed reps.
+- Restore internet with the same account signed in. Verify import through Import training data, the original date/weight/rep durations in Sessions, a pending count of zero and the persistent success count. Dismiss it; ordinary online use should have no sync banner.
+- Interrupt connectivity during import, then restore it: verify no duplicate session appears. Expire sign-in or change accounts: sets must stay queued until the correct account is available.
+- Complete a website set during a reception loss: the existing timer must survive until completion, and its reps must be queued once.
+- Complete an ordinary fully online website set: it must not also enter the offline queue.

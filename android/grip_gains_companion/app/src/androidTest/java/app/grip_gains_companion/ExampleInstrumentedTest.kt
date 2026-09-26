@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("app.grip_gains_companion", appContext.packageName)
+        assertEquals("com.tantaluspath.powercurve", appContext.packageName)
     }
 }
