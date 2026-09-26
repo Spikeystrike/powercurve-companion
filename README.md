@@ -1,77 +1,76 @@
 # Powercurve for Android
 
-Android companion for **https://powercurve.tantaluspath.com** with native Bluetooth device support, a live force curve and automatic rep completion on a sustained force drop.
+Android companion for [Powercurve](https://powercurve.tantaluspath.com) with Bluetooth sensor support, a live force graph and offline training.
 
 ## Getting started
 
-1. Install the APK on Android 10 or newer and allow Bluetooth permissions. Android 10/11 also requires location services for BLE discovery.
-2. Sign in to Powercurve inside the app. Training setup and session saving use the Powercurve website and its backend.
-3. Select a **Tindeq Progressor**, **PitchSix Force Board** or **Weiheng WH-C06** from the Bluetooth menu. Keep the sensor unloaded during the initial five-second calibration.
-4. Enter the weight in Powercurve's **Weight** field. The app's target indicator, graph line and target feedback follow this field and the active set's weight. Old manual overrides and the former 20 kg default no longer replace it. Empty or invalid input means no target.
-5. Start a set. The live force curve is displayed during a rep. App display units may be kg or lb; internal values are kg.
-6. Configure **Settings → Advanced → End rep on force drop**, the drop percentage (10–80%) and confirmation time (100–1000 ms).
-7. Online, tap **Save session** in Powercurve after the set. Offline sets are saved on the phone and synchronized automatically as described below.
-
-## Offline training (0.1.4)
-
-When internet access is unavailable, the Timer screen offers a native **Offline set timer**. Bluetooth measurements and the native force graph do not need internet access; the graph panel stays expanded while using the offline timer (when Show Force Graph is enabled). A scale must still be connected to supply live measurements.
-
-- Choose gripper, side, target weight, reps, rest and countdown. End each rep manually or use the existing target-based force-drop detection. Completing the planned reps saves the set automatically; **Save set now** during rest saves a shorter set. New sets can be started immediately.
-- Completed reps and pending sets are written atomically to private app storage. After an app restart, an interrupted set is recovered in a paused state. Completed reps remain intact; an unfinished rep is not assigned an invented duration.
-- If reception is lost during a recognized website set, its countdown, reps and rests stay on screen. Completed rep durations are checkpointed locally, and the completed set is queued for import. Reconnecting does not reload a running set.
-- When internet returns while the app is running, pending sets are imported one at a time through Powercurve's **Import training data** form in a separate first-party WebView. The user's timer is not navigated away. If the app was closed, synchronization resumes on the next launch.
-- A banner shows the number of sets waiting to sync and any sign-in or retry requirement. Successfully imported sets are counted with a completion time until **Dismiss** is tapped. Ordinary online use with no offline backlog or unacknowledged sync result has no additional sync banner.
-- Sets are tied to the last verified Powercurve account. Switching accounts does not upload another account's queue. If a set was created before any account could be identified, choose **Sync to [account]** once after signing in.
-- A set leaves the queue only after the matching saved server row is verified. A lost acknowledgement triggers verification before another submission. Network errors, expired sign-in and changed import markup retain the local set for retry.
-
-Import uses the existing single-session JSON format: original date/time, gripper, side, weight in pounds and individual rep durations. Countdown/rest settings remain local because they are not part of that import format. Raw force samples are not uploaded. Account and session checks use the same read endpoints as the website; all writes go through the existing import form. Authenticated production import and physical BLE acceptance still require validation with a real account and scale.
-
-## WH-C06 readings
-
-The WH-C06 broadcasts measurements in BLE advertisements; selecting it does not establish a GATT measurement connection. The app now waits for a decoded measurement before showing **Connected**. No valid readings for 15 seconds changes the state to **Reconnecting** while it keeps listening.
-
-Version 0.1.2 accepts measurement payloads from the selected scale even when its firmware uses a different manufacturer ID or omits a recognized unit code. Valid kg/lb/stone/jin codes are converted to kg. For firmware without a valid unit code, **WH-C06 fallback unit: pounds** selects the scale's unit: off = kg, on = lb. Set it to match the physical scale. This setting is independent of the app's display unit.
-
-Reopening the screen no longer starts a duplicate measurement scan. If readings still do not arrive, open the app's logs: the first rejected packet reports manufacturer IDs and payload lengths, and successful reception is logged. Hardware verification with the user's scale remains necessary.
+1. Install the APK on **Android 10 or newer** and allow Bluetooth permissions. Android 10/11 also requires location services for device discovery.
+2. Sign in to Powercurve inside the app.
+3. Select a **Tindeq Progressor**, **PitchSix Force Board** or **Weiheng WH-C06** from the Bluetooth menu. Keep the sensor unloaded during the five-second calibration.
+4. Enter your target in the timer's **Weight** field. The graph and target feedback follow this weight. Display units can be kg or lb.
+5. Start a set. View the live force graph and end reps manually or use automatic force-drop detection.
+6. When training online, tap **Save session** after the set.
 
 ## Automatic rep completion
 
-Defaults: enabled, **50% force drop**, **250 ms confirmation**. Detection arms after at least 300 ms of load at or above **90% of Target Weight**. The completion limit is **Target Weight × (1 − drop percentage)**. For a 20 kg target and 50% drop, it arms at 18 kg and ends the rep at 10 kg or below after the confirmation time. Peak force does not affect either limit. A three-sample median rejects isolated outliers; device sampling rate affects response time.
+Configure **Settings → Advanced → End rep on force drop**:
 
-The same Powercurve Weight field controls the graph, target feedback, arming threshold and force-drop limit. There is no fixed 3 kg minimum. A missing, zero, negative or invalid target disables auto-end. Changing the target requires a fresh stable load before rearming.
+- **Force drop:** 10–80%; default 50%.
+- **Confirmation time:** 100–1000 ms; default 250 ms.
 
-Auto-end acts only on a visible, active rep. Countdown, rest, set completion, missing measurements, stale timer state and disconnections cannot trigger it. A measurement gap over 1.5 seconds requires stable loading again. Auto-end pauses in the background. Powercurve remains responsible for online timing and session saving; the native offline timer handles locally queued sets.
+Detection activates after holding at least **90% of Target Weight for 300 ms**. A rep ends when force stays at or below **Target Weight × (1 − drop percentage)** for the confirmation time.
 
-## Backend and data
+For a **20 kg target** and **50% drop**, hold at least **18 kg** to activate detection. The rep then ends after force stays at **10 kg or below** for 250 ms.
 
-The embedded WebView loads Powercurve. External links open in the browser. The native message bridge is restricted to the Powercurve origin and main frame. It does not read passwords or call undocumented write APIs.
+A valid target is required. Changing the target or reconnecting the sensor requires a fresh stable load. Automatic completion only operates during an active rep while the training screen is visible.
 
-On a force drop, the integration clicks the existing **End rep** button at most once per rep. A rep key prevents delayed actions from affecting the next rep. Unrecognized timer states disable the action and appear in the status line.
+## Offline training
 
-**Raw force curves are not uploaded to the server.** Local history stays on the phone; Powercurve saves the values supported by its website. Uploading complete force curves would require a coordinated backend extension.
+Without internet, use the **Offline set timer**. Bluetooth measurements and the live force graph remain available with a connected sensor. Enable **Show Force Graph** to keep the graph panel expanded.
+
+1. Choose gripper, side, target weight, reps, rest and countdown.
+2. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set.
+3. Start another set whenever you are ready.
+
+Saved sets and completed reps survive app restarts. An interrupted set can be resumed; an unfinished rep is not counted.
+
+When internet returns, sets are automatically added through **Import training data** while the app is running. If the app was closed, synchronization resumes the next time it opens.
+
+- The status banner shows how many sets are **waiting to sync** and whether sign-in is needed.
+- After successful synchronization, the count and completion time remain visible until you tap **Dismiss**.
+- No extra sync banner appears during ordinary online use.
+
+Synchronization uses the account associated with the saved sets. If you trained before signing in for the first time, tap **Sync to [account]** after signing in. Failed imports stay saved for retry.
+
+Imported sets include the date, gripper, side, weight and individual rep durations. Countdown and rest settings remain local. Raw force curves and local history stay on your phone.
+
+## WH-C06 setup
+
+**Connected** appears once measurements arrive. After 15 seconds without readings, the app shows **Reconnecting** and keeps listening.
+
+If readings use the wrong unit, set **WH-C06 fallback unit: pounds** to match the scale: off for kg, on for lb. This applies when the scale does not report a recognized unit and is independent of the app's display unit. For connection problems, check the app's logs.
 
 ## Build and tests
 
-Use JDK 17, Android SDK 36 and Build Tools 36.0.0. Project directory: `android/grip_gains_companion`. Application ID: `com.tantaluspath.powercurve`.
+Use **JDK 17**, **Android SDK 36** and **Build Tools 36.0.0**.
 
 ```sh
 cd android/grip_gains_companion
 ./gradlew :app:assembleDebug :app:testDebugUnitTest
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. Debug APKs are for testing; use a securely retained release key for long-term updates or Play Store distribution. The GitHub Actions workflow also builds an APK when account limits allow it.
+APK: `app/build/outputs/apk/debug/app-debug.apk`. On Windows, use `gradlew.bat`. To retain app data when updating, install over the existing app using the same signing key.
 
-Standalone force-drop, WH-C06 decoder and DOM bridge tests require JDK 17 and Node.js:
+Additional detector, decoder and web integration tests require JDK 17 and Node.js. Run from the repository root:
 
 ```sh
 bash tests/run.sh
 ```
 
+See [validation results](docs/VALIDATION.md) and the [device test plan](docs/DEVICE_TEST_PLAN.md) for test coverage and remaining hardware and account checks.
+
 ## Credits and license
 
-MIT license: see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT license: [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-- Android foundation: [bdrmakes/grip-gains-isotonic-companion](https://github.com/bdrmakes/grip-gains-isotonic-companion), commit `467ac80a29e21a0cb616e37613ea4cbeb3f48603`.
-- Rep failure and WH-C06 reference: [jakemcc/grip_gains_companion](https://github.com/jakemcc/grip_gains_companion), commit `fad9bddfd7262f9541851441fbdb845c42581c22`.
-
-The Bluetooth drivers derive from these projects. The timer bridge and percentage-based force-drop detection are Powercurve adaptations. See the [device test plan](docs/DEVICE_TEST_PLAN.md) for remaining hardware validation.
+Based on [bdrmakes/grip-gains-isotonic-companion](https://github.com/bdrmakes/grip-gains-isotonic-companion) and [jakemcc/grip_gains_companion](https://github.com/jakemcc/grip_gains_companion), with timer integration and force-drop detection adapted for Powercurve.
