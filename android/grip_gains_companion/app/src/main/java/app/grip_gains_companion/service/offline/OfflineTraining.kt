@@ -85,13 +85,13 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         destination.update(change); error=""; _revision.value++; true
     } catch (_: Exception) { error = "Could not save offline data. Free storage and try again; keep this set open."; false } }
     fun start(gripper: String, side: String, weightKg: Double, reps: Int, rest: Int, countdown: Int, targetDuration: Int? = null) {
-        if (inProgress || !available || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !weightKg.isFinite() || weightKg <= 0 || reps !in 1..100 || rest !in 0..600 || countdown !in 0..60) return
+        if ((targetDuration!=null && targetDuration !in 1..3600) || inProgress || !available || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !weightKg.isFinite() || weightKg <= 0 || reps !in 1..100 || rest !in 0..600 || countdown !in 0..60) return
         if(store?.has("webActive") == true) { active=state.getJSONObject("webActive");phase="paused";open=true;publish();return }
         val record = JSONObject().put("id",UUID.randomUUID().toString()).put("owner",state.optString("lastAccount"))
             .put("date_time",Instant.ofEpochMilli(System.currentTimeMillis()).toString()).put("gripper",gripper).put("side",side).put("weightKg",weightKg)
             .put("targetDuration",targetDuration).put("plannedReps",reps).put("rest",rest).put("countdown",countdown).put("reps",JSONArray())
         if (!save { it.put("active",record).put("defaults",record) }) return
-        active=record; open=true; phase=if(countdown>0) "countdown" else "rep"; phaseStart=SystemClock.elapsedRealtime()
+        active=record; seconds=countdown; open=true; phase=if(countdown>0) "countdown" else "rep"; phaseStart=SystemClock.elapsedRealtime()
         bridge.offlineEndRep = ::endRep
         publish()
     }
@@ -119,7 +119,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         if (!save { it.put("active",next) }) return
         active=next
         if (next.getJSONArray("reps").length()>=next.getInt("plannedReps")) { phase="complete"; publish(); finish() }
-        else { phase=if(next.getInt("rest")>0) "rest" else "rep"; phaseStart=SystemClock.elapsedRealtime(); publish() }
+        else { seconds=next.getInt("rest"); phase=if(next.getInt("rest")>0) "rest" else "rep"; phaseStart=SystemClock.elapsedRealtime(); publish() }
     }
     fun resumeRecovered() { if(phase=="paused" && active!=null) {phase="countdown";phaseStart=SystemClock.elapsedRealtime();publish()} }
     fun finish() {
@@ -127,6 +127,13 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         if (record.getJSONArray("reps").length()==0) { syncMessage="Complete a rep before saving this set."; return }
         try { store?.enqueue(record) ?: return } catch (_: Exception) {error="Could not save the set. Free storage and try Save set again.";return}
         active=null;phase="setup";bridge.offlineEndRep=null;bridge.invalidate("Offline set saved");syncMessage="";error="";_revision.value++
+    }
+    val targetRemaining: Int? get() = active?.optInt("targetDuration")?.takeIf {it>0}?.let {it-if(phase=="rep") seconds else 0}
+    fun discardSet() {
+        if(active==null) return
+        if(!save {it.remove("active");it.remove("webActive")}) return
+        active=null;phase="setup";seconds=0;webSaved=true;syncMessage=""
+        bridge.offlineEndRep=null;bridge.invalidate("Set discarded")
     }
     fun cancelEmpty() { if(active?.getJSONArray("reps")?.length()!=0)return; if(save {it.remove("active");it.remove("webActive")}){active=null;phase="setup";bridge.offlineEndRep=null;bridge.invalidate()} }
     fun useWebsite() { if(inProgress)return;open=false;pageFailed=false;bridge.offlineEndRep=null;bridge.reloadPage() }

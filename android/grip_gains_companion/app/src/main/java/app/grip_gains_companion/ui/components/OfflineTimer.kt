@@ -45,6 +45,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     var reps by rememberSaveable {mutableStateOf((defaults?.optInt("plannedReps") ?: 6).toString())}
     var rest by rememberSaveable {mutableStateOf((defaults?.optInt("rest") ?: 10).toString())}
     var countdown by rememberSaveable {mutableStateOf((defaults?.optInt("countdown") ?: 20).toString())}
+    var targetTime by rememberSaveable {mutableStateOf(defaults?.optInt("targetDuration")?.takeIf {it>0}?.toString() ?: "")}
     var previousLbs by rememberSaveable {mutableStateOf(useLbs)}
     LaunchedEffect(useLbs) {
         if(previousLbs!=useLbs) {
@@ -59,28 +60,33 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
         val active=training.active
         if(active==null) {
             Text("Sets are saved on this phone and imported automatically when connected.",style=MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item},label={Text(item.replaceFirstChar(Char::uppercase))})} }
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item},label={Text(item.replaceFirstChar(Char::uppercase))})}}
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})} }
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})}}
             val curve=training.curve(gripper,side)
             OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull()) { match ->
                 weight=String.format(java.util.Locale.US,"%.2f",match.weight)
                 reps=match.zone.reps.toString()
+                targetTime=match.seconds.toString()
             }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(weight,{weight=it},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(weight,{weight=it;targetTime=curve?.estimate(it.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs)?.seconds?.toString() ?: ""},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(reps,{reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
             }
+            OutlinedTextField(targetTime,{targetTime=it},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(rest,{rest=it},label={Text("Rest (0–600 s)")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(countdown,{countdown=it},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
             }
-            Button(onClick={training.start(gripper,side,kg!!,reps.toInt(),rest.toInt(),countdown.toInt(),curve?.estimate(weight.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs)?.seconds)},enabled=training.available && kg!=null && kg.isFinite() && kg>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
+            Button(onClick={training.start(gripper,side,kg!!,reps.toInt(),rest.toInt(),countdown.toInt(),targetTime.toIntOrNull())},enabled=(targetTime.isBlank() || targetTime.toIntOrNull() in 1..3600) && training.available && kg!=null && kg.isFinite() && kg>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
             if(training.online) TextButton(onClick=training::useWebsite){Text("Return to Powercurve")}
         } else {
             val done=active.getJSONArray("reps").length()
             Text("${active.getString("gripper")} · ${active.getString("side")} · " + String.format(java.util.Locale.US,"%.1f %s",if(useLbs) active.getDouble("weightKg")/0.45359237 else active.getDouble("weightKg"),if(useLbs) "lb" else "kg"))
             Text("${training.phase.replaceFirstChar(Char::uppercase)} · ${training.seconds}s",style=MaterialTheme.typography.headlineLarge)
-            if(active.optInt("targetDuration")>0) Text("Estimated hold: ${active.getInt("targetDuration")} s")
+            if(active.optInt("targetDuration")>0) {
+                Text("Target hold: ${active.getInt("targetDuration")} s")
+                if(training.phase=="rep") Text("Target countdown: ${training.targetRemaining} s",style=MaterialTheme.typography.headlineMedium)
+            }
             Text("$done / ${active.getInt("plannedReps")} reps completed")
             if(training.phase=="paused") {
                 Text("Interrupted set recovered. Completed reps are safe; the interrupted rep was not counted.")
@@ -88,7 +94,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             }
             if(training.phase=="rep") Button(onClick=training::endRep,modifier=Modifier.fillMaxWidth()){Text("End rep")}
             if(done>0 && training.phase!="rep") Button(onClick=training::finish){Text("Save set now")}
-            if(done==0 && training.phase!="rep") TextButton(onClick=training::cancelEmpty){Text("Cancel empty set")}
+            TextButton(onClick=training::discardSet,modifier=Modifier.fillMaxWidth()){Text("Discard set without saving")}
         }
         if(training.error.isNotBlank()) Text(training.error,color=MaterialTheme.colorScheme.error)
     }

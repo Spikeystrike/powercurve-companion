@@ -20,6 +20,7 @@ import app.grip_gains_companion.service.offline.OfflineCurve
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight: Double?, select: (OfflineCurve.Match) -> Unit) {
@@ -34,6 +35,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     val minWeight=range.minimum*factor
     val maxWeight=range.maximum*factor
     val weightSpan=maxWeight-minWeight
+    val currentSelect by rememberUpdatedState(select)
     var inspected by remember(curve,lbs) {mutableStateOf<OfflineCurve.PlotPoint?>(null)}
     // Sample once per curve/unit; no curve solving or JSON access during drawing/scrolling.
     val segments=remember(curve,lbs) { curve.plotSegments().map { segment -> segment.map { point ->
@@ -53,7 +55,12 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
             Box(Modifier.fillMaxWidth().height(140.dp).testTag("offline-curve-plot")
                 .pointerInput(curve,lbs,range) {
                     detectTapGestures { position ->
-                        if(size.width>0) inspected=curve.inspectPlot(position.x.toDouble()/size.width,range)
+                        if(size.width>0) {
+                            val point=curve.inspectPlot(position.x.toDouble()/size.width,range)
+                            inspected=point
+                            val seconds=point.seconds.roundToInt()
+                            currentSelect(OfflineCurve.Match(point.weightPounds*factor,seconds,OfflineCurve.zones[OfflineCurve.zone(seconds.toDouble())]))
+                        }
                     }
                 }.drawWithCache {
                 val paths=segments.map { segment -> Path().apply {
@@ -90,7 +97,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
         }
     }
     Text(inspected?.let { String.format(Locale.US,"Curve point: %.2f %s · %.1f s",it.weightPounds*factor,unit,it.seconds) }
-        ?: "Tap the curve to inspect weight and hold time.",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-curve-readout"))
+        ?: "Tap the curve to set target weight and hold time.",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-curve-readout"))
     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
         OfflineCurve.zones.indices.reversed().forEach { index ->
             val zone=OfflineCurve.zones[index]

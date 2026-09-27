@@ -167,4 +167,43 @@ class OfflineTrainingTest {
         assertSame(curve,t.curve("crusher","left"))
         assertEquals(123L,t.curveSavedAt)
     }
+    @Test fun discardCompletedAndActiveRepsNeverQueuesAndSurvivesRestart() {
+        val (t,b)=training()
+        t.start("crusher","left",20.0,1,0,0);t.endRep()
+        val savedId=t.queue().single().getString("id")
+        t.start("crusher","left",20.0,3,0,0)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));t.endRep()
+        t.discardSet();t.endRep()
+        assertFalse(t.inProgress);assertFalse(b.isFreshActive)
+        assertNull(b.offlineEndRep)
+        assertEquals(savedId,t.queue().single().getString("id"))
+        val restored=training().first
+        assertFalse(restored.inProgress);assertEquals(1,restored.pending)
+    }
+    @Test fun targetCountdownCrossesZeroAndResetsForNextRep() {
+        val (t,_)=training()
+        t.start("crusher","left",20.0,3,2,0,5)
+        assertEquals(5,t.targetRemaining)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(5));t.tick(android.os.SystemClock.elapsedRealtime())
+        assertEquals(0,t.targetRemaining)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(3));t.tick(android.os.SystemClock.elapsedRealtime())
+        assertEquals(-3,t.targetRemaining)
+        assertTrue(t.inProgress)
+        t.endRep()
+        assertEquals(8,t.active!!.getJSONArray("reps").getInt(0))
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(2));t.tick(android.os.SystemClock.elapsedRealtime())
+        assertEquals("rep",t.phase);assertEquals(5,t.targetRemaining)
+        t.discardSet();assertNull(t.targetRemaining)
+    }
+    @Test fun discardIsAvailableDuringCountdownRestAndRecovery() {
+        val (t,_)=training()
+        t.start("crusher","left",20.0,3,10,20);t.discardSet()
+        assertFalse(t.inProgress)
+        t.start("crusher","left",20.0,3,10,0);t.endRep()
+        assertEquals("rest",t.phase)
+        val restored=training().first
+        assertEquals("paused",restored.phase)
+        restored.discardSet()
+        assertFalse(training().first.inProgress);assertEquals(0,restored.pending)
+    }
 }

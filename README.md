@@ -28,9 +28,9 @@ A valid target is required. Changing the target or reconnecting the sensor requi
 
 Without internet, use the **Offline set timer**. Bluetooth measurements and the live force graph remain available with a connected sensor. Enable **Show Force Graph** to keep the graph panel expanded.
 
-1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to inspect weight and hold time. The weight axis starts just below the lowest plotted weight. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. You can also enter a weight or match a hold time.
-2. Set reps, rest and countdown.
-3. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set.
+1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to set the timer weight, target hold time and recommended reps. The weight axis starts just below the lowest plotted weight. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. You can also enter a weight or match a hold time.
+2. Set reps, rest and countdown. **Target hold** is optional and can be edited. During each rep, **Target countdown** shows the remaining target time and becomes negative when exceeded.
+3. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set. **Discard set without saving** abandons the current set, including completed reps, without adding it to the sync queue.
 4. Start another set whenever you are ready.
 
 Curves are stored per account, gripper and hand. Connect once to cache a fitted curve; unavailable zones need more training data. The saved timestamp is shown, and pending sets affect the curve after synchronization and online recalculation.

@@ -73,6 +73,8 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
         ui.onNodeWithTag("offline-curve-readout").assertTextContains("Curve point:",substring=true)
         ui.onNodeWithTag("offline-curve-readout").assertTextContains("kg",substring=true)
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.98")
+        ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("96")
         ui.onNodeWithText("Strength",useUnmergedTree=true).performScrollTo().performClick()
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")
@@ -83,5 +85,14 @@ class OfflineUiInstrumentedTest {
         val after=ui.onNodeWithTag("offline-timer").captureToImage().toPixelMap()
         assertEquals(Color(0xFF1A2231),before[before.width-1,2])
         assertEquals(before[before.width-1,2],after[after.width-1,2])
+    }
+    @Test fun targetCountdownAndDiscardControlsAreAvailableDuringARep() {
+        ui.runOnUiThread {training.start("crusher","left",20.0,3,0,0,5)}
+        ui.onNodeWithText("Target countdown: 5 s").assertIsDisplayed()
+        ui.onNodeWithText("End rep").performClick()
+        ui.onNodeWithText("Discard set without saving").performClick()
+        ui.onNodeWithText("Start set").performScrollTo().assertExists()
+        assertEquals(0,training.pending)
+        assertFalse(OfflineStore(context).snapshot().has("active"))
     }
 }

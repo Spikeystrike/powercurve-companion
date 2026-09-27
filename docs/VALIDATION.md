@@ -1,5 +1,16 @@
 # Validation
 
+## 0.1.8
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built successfully (versionCode 10 / versionName 0.1.8).
+- 33 JVM/Robolectric tests passed. New cases verify discard across active/rest/countdown/recovered states, preservation of previously queued sets, restart behavior, and target countdown through zero into negative time and reset at the next rep.
+- All 5 Android emulator instrumented tests passed. Tests verify curve taps populate weight and target time, the target countdown appears during a rep, and discard removes the active record without queuing it.
+- Target hold time is optional and editable. It is independent of the measured rep duration and does not automatically end a rep at zero.
+- Physical-device and authenticated production-account checks remain unverified; existing project-wide lint limitations remain.
+
+
 ## 0.1.7
 
 Local validation on 2026-09-27:
