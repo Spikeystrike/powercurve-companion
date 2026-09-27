@@ -58,7 +58,7 @@ class OfflineCurveTest {
             }
             points.forEach { assertEquals(curve.hold(it.weightPounds),it.seconds,0.000001) }
         }
-        assertEquals(30.0,segments.first().last().seconds,0.000001)
+        assertEquals(1.0,segments.first().last().seconds,0.000001)
         assertEquals(300.0,segments.last().first().seconds,0.000001)
     }
     @Test fun plotRangeStartsJustBeforeCurveAndTapsStayOnCurve() {
@@ -70,7 +70,7 @@ class OfflineCurveTest {
         assertEquals((range.minimum+range.maximum)/2,middle.weightPounds,0.000001)
         assertEquals(curve.hold(middle.weightPounds),middle.seconds,0.000001)
         assertEquals(300.0,curve.inspectPlot(0.0,range).seconds,0.000001)
-        assertEquals(30.0,curve.inspectPlot(1.0,range).seconds,0.000001)
+        assertEquals(1.0,curve.inspectPlot(1.0,range).seconds,0.000001)
     }
     @Test fun holdTimeMatchingSupportsOneToFourHundredSecondsInBothUnits() {
         val fixture=data();fixture.getJSONObject("params").put("a",600)
@@ -84,5 +84,15 @@ class OfflineCurveTest {
         assertNull(curve.matchTime(0.0,false));assertNull(curve.matchTime(401.0,false));assertNull(curve.matchTime(Double.NaN,false))
         fixture.getJSONObject("params").put("a",200)
         assertNull(OfflineCurve(fixture).matchTime(400.0,false))
+    }
+
+    @Test fun axisExtendsPastFiniteZeroCrossing() {
+        val fixture=data();fixture.getJSONObject("params").put("c",1)
+        val curve=OfflineCurve(fixture);val range=curve.plotRange()
+        assertEquals(0.0,curve.hold(range.curveMaximum),0.000001)
+        assertTrue(range.maximum>range.curveMaximum)
+        assertEquals(0.05*(range.curveMaximum-range.curveMinimum),range.maximum-range.curveMaximum,0.000001)
+        assertEquals(0.0,curve.plotSegments().first().last().seconds,0.000001)
+        assertEquals(1.0,curve.inspectPlot(1.0).seconds,0.000001)
     }
 }

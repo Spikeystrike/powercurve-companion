@@ -15,7 +15,7 @@
     if (curveLoading || Date.now()-curveChecked < 30000) return;
     curveLoading=true; curveChecked=Date.now();
     try {
-      const owner=String(user.id);
+      const owner=String(user.id), sessionsFetchedAt=Date.now();
       const options={credentials:'include',cache:'no-store',headers:{Accept:'application/json','X-Powercurve-Expected-User-Id':owner}};
       const [graphResponse, sessionResponse]=await Promise.all([fetch('/api/curvefit/graphs',options),fetch('/api/curvefit/sessions',options)]);
       if(!graphResponse.ok || !sessionResponse.ok) return;
@@ -39,7 +39,7 @@
       }).map(s=>({id:s.id,date_time:s.date_time,gripper:s.gripper,side:s.side,weight:s.weight,rep_durations:s.rep_durations,max_hold:s.max_hold}));
       const current=await auth();
       if(String(current.id)!==owner) return;
-      if(curves?.owner!==owner || JSON.stringify(curves.data.sides)!==JSON.stringify(sides) || JSON.stringify(curves.data.sessions)!==JSON.stringify(sessions)) curves={owner,data:{sides,sessions,savedAt:Date.now()}};
+      curves={owner,data:{sides,sessions,sessionsFetchedAt,savedAt:Date.now()}};
     } catch (_) { /* Keep the last verified local curve when offline. */ }
     finally { curveLoading=false; }
   }

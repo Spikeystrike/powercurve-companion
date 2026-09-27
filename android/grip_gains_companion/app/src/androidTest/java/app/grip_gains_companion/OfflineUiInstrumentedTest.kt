@@ -74,8 +74,8 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
         ui.onNodeWithTag("offline-curve-readout").assertTextContains("Curve point:",substring=true)
         ui.onNodeWithTag("offline-curve-readout").assertTextContains("kg",substring=true)
-        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.98")
-        ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("96")
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("59.42")
+        ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("15")
         ui.onNodeWithText("Strength",useUnmergedTree=true).performScrollTo().performClick()
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")
@@ -87,7 +87,8 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("0 s").assertExists()
         val plot=ui.onNodeWithTag("offline-curve-plot").captureToImage().toPixelMap()
         val min=40*kotlin.math.ln(400.0/300)*0.45359237*0.95
-        val max=40*kotlin.math.ln(400.0/30)*0.45359237
+        val high=40*kotlin.math.ln(400.0)
+        val max=(high+(high-40*kotlin.math.ln(400.0/300))*0.05)*0.45359237
         val px=((25-min)/(max-min)*plot.width).toInt()
         val py=((300-400*kotlin.math.exp(-0.025*25/0.45359237))/300*plot.height).toInt()
         fun guideAt(x:Int,y:Int): Boolean = (-1..1).any {dx->(-1..1).any {dy->

@@ -45,7 +45,7 @@ class OfflineStore(context: Context) {
         val history=state.optJSONArray("localHistory") ?: JSONArray()
         for (i in 0 until queue.length()) {
             val record = queue.getJSONObject(i)
-            if (record.getString("id") == id) { found = true; history.put(record) } else remaining.put(record)
+            if (record.getString("id") == id) { found = true; history.put(record.put("acknowledgedAt",System.currentTimeMillis())) } else remaining.put(record)
         }
         // Preserve recently imported local sets until the server curve/session cache catches up.
         val retained=JSONArray();val counts=mutableMapOf<String,Int>();val zones=mutableSetOf<String>()

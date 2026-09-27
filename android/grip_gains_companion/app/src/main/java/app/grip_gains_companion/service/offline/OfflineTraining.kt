@@ -168,8 +168,16 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     }
     fun cacheCurves(owner: String, data: JSONObject) {
         if(owner!=account || !data.has("sides")) return
-        if(cachedCurveData?.optJSONArray("sides")?.toString()==data.optJSONArray("sides")?.toString() && cachedCurveData?.optJSONArray("sessions")?.toString()==data.optJSONArray("sessions")?.toString()) return
-        if(save { state -> val caches=state.optJSONObject("curvesByOwner") ?: JSONObject(); caches.put(owner,data);state.put("curvesByOwner",caches) }) refreshCurveMemory()
+        val fetchedAt=data.optLong("sessionsFetchedAt")
+        val local=state.optJSONArray("localHistory") ?: JSONArray()
+        val retained=JSONArray()
+        for(i in 0 until local.length()) {
+            val row=local.getJSONObject(i)
+            if(row.optString("owner")!=owner || fetchedAt<=row.optLong("acknowledgedAt") || !data.has("sessions")) retained.put(row)
+        }
+        val reconciled=retained.length()!=local.length()
+        if(!reconciled && cachedCurveData?.optJSONArray("sides")?.toString()==data.optJSONArray("sides")?.toString() && cachedCurveData?.optJSONArray("sessions")?.toString()==data.optJSONArray("sessions")?.toString()) return
+        if(save { state -> val caches=state.optJSONObject("curvesByOwner") ?: JSONObject(); caches.put(owner,data);state.put("curvesByOwner",caches); if(reconciled) state.put("localHistory",retained) }) refreshCurveMemory()
     }
     fun assignUnowned() { val id=account ?: return;save {state -> val q=state.optJSONArray("queue")?:JSONArray();for(i in 0 until q.length())if(q.getJSONObject(i).optString("owner").isEmpty())q.getJSONObject(i).put("owner",id)} }
     fun acknowledge(id: String) {try{store?.acknowledge(id);syncMessage="";error="";_revision.value++}catch(_:Exception){error="Import succeeded, but local confirmation could not be saved. The next attempt will check for this set first."}}

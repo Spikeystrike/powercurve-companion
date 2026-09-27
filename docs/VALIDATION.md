@@ -1,5 +1,15 @@
 # Validation
 
+## 0.1.13
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built (versionCode 15 / versionName 0.1.13). All 45 JVM/Robolectric tests, 22 JavaScript tests and 6 Android emulator tests passed.
+- Curve tests verify a finite zero crossing, a 5% right margin, the 1-second fallback for asymptotic fits and valid timer selection at the right edge. Emulator checks cover the expanded axis and guide positions.
+- History tests cover Prime, Crusher and Micro: stale snapshots retain recently acknowledged sets, fresh snapshots remove deleted imported sets even when the server cache contents are otherwise unchanged, queued sets remain, and removal persists after restart.
+- Successful session fetches carry their request-start timestamp. Only acknowledged local history older than that fetch is replaced; queued sets and other accounts are untouched. Existing local copies without acknowledgement timestamps are reconciled on the first fresh snapshot.
+- Authenticated production deletion and physical-device behavior remain unverified; existing lint limitations remain.
+
 ## 0.1.12
 
 Local validation on 2026-09-27:

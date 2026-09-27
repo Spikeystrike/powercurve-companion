@@ -19,22 +19,28 @@ class OfflineCurve(private val data: JSONObject) {
     private val c=params.getDouble("c")
     private val d=params.getDouble("d")
     data class PlotPoint(val weightPounds: Double, val seconds: Double)
-    data class PlotRange(val minimum: Double, val maximum: Double, val curveMinimum: Double) {
+    data class PlotRange(val minimum: Double, val maximum: Double, val curveMinimum: Double, val curveMaximum: Double = maximum) {
         val span: Double get() = maximum-minimum
     }
     fun plotRange(): PlotRange {
         val low=pounds(300.0)
-        val high=pounds(30.0).coerceAtLeast(low+0.001)
-        return PlotRange((low*0.95).coerceAtLeast(0.0),high,low)
+        val high=plotEnd().coerceAtLeast(low+0.001)
+        return PlotRange((low*0.95).coerceAtLeast(0.0),high+(high-low)*0.05,low,high)
+    }
+    // Some exponential fits approach zero without crossing it. Use the 1-second
+    // endpoint in that case instead of stretching the axis towards infinity.
+    private fun plotEnd(): Double {
+        val zero=pounds(0.0)
+        return if(hold(0.0)>0 && hold(500.0)<=0 && kotlin.math.abs(hold(zero))<0.001) zero else pounds(1.0)
     }
     fun inspectPlot(fraction: Double, range: PlotRange = plotRange()): PlotPoint {
-        val weight=(range.minimum+fraction.coerceIn(0.0,1.0)*range.span).coerceIn(range.curveMinimum,range.maximum)
-        return PlotPoint(weight,hold(weight).coerceIn(30.0,300.0))
+        val weight=(range.minimum+fraction.coerceIn(0.0,1.0)*range.span).coerceIn(range.curveMinimum,minOf(range.curveMaximum,pounds(1.0)))
+        return PlotPoint(weight,hold(weight).coerceIn(1.0,300.0))
     }
     fun plotSegments(): List<List<PlotPoint>> {
         val bounds=listOf(30.0,48.0,82.0,129.0,180.0,300.0)
         return (0..4).map { index ->
-            val low=pounds(bounds[index+1]); val high=pounds(bounds[index])
+            val low=pounds(bounds[index+1]); val high=if(index==0) plotEnd() else pounds(bounds[index])
             (0..40).map { step -> val weight=low+(high-low)*step/40; PlotPoint(weight,hold(weight)) }
         }
     }

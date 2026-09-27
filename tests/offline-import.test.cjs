@@ -9,7 +9,7 @@ function fixture(options={}) {
  const button={disabled:false,getAttribute:()=> 'false',click(){clicks++;if(options.serverError){error='Network failed';return;} imported=true;value='';message='Imported 1 session; merged 0; skipped 0. Graph refresh queued for 1 side.';}};
  const panel={querySelector(s){if(s==='textarea')return input;if(s==='button[type="submit"]')return button;if(s.includes('successMessage'))return {textContent:message};if(s.includes('errorMessage'))return error?{textContent:error}:null;return null;}};
  const window={};window.top=window;
- const context={window,location:{origin:options.origin||'https://powercurve.tantaluspath.com'},document:{querySelector:()=>options.missingForm?null:panel},HTMLTextAreaElement:TextArea,Event:class{},setTimeout:cb=>{cb();},fetch:async(url,opts)=>{requests.push([url,opts]);if(url.includes('auth/me'))return {ok:!options.signedOut,json:async()=>({user:{id:options.account||7,name:'Test'}})};if(url.includes('/graphs'))return {ok:true,json:async()=>options.graph || {sides:[]}};if(options.curveRows)return {ok:true,json:async()=>({sessions:options.curveRows})};if(options.readFailure)return {ok:false};return {ok:true,json:async()=>({sessions:options.existing || (imported&&!options.missingRow) ? [row] : []})};},Date,JSON,Error};
+ const context={window,location:{origin:options.origin||'https://powercurve.tantaluspath.com'},document:{querySelector:()=>options.missingForm?null:panel},HTMLTextAreaElement:TextArea,Event:class{},setTimeout:cb=>{cb();},fetch:async(url,opts)=>{requests.push([url,opts]);if(url.includes('auth/me'))return {ok:!options.signedOut,json:async()=>({user:{id:options.account||7,name:'Test'}})};if(url.includes('/graphs'))return {ok:true,json:async()=>options.graph || {sides:[]}};if(options.curveRows)return {ok:true,json:async()=>({sessions:options.curveRows})};if(options.readFailure)return {ok:false};return {ok:true,json:async()=>({sessions:options.existing || (imported&&!options.missingRow) ? [row] : []})};},Date:options.clock||Date,JSON,Error};
  vm.runInNewContext(script,context);
  return {api:window.PowercurveOfflineImport,requests,get clicks(){return clicks}};
 }
@@ -46,4 +46,16 @@ test('history cache retains last sixty per side plus older latest zone',async()=
  const f=fixture({graph:{sides:[]},curveRows:rows});f.api.poll();await flush();
  const cached=f.api.poll().curves.data.sessions;
  assert.equal(cached.length,61);assert.equal(cached[0].id,70);assert.equal(cached.at(-1).id,1);
+});
+
+test('unchanged fresh server snapshots carry a new reconciliation timestamp',async()=>{
+ let now=100000;class Clock extends Date {static now(){return now;}}
+ const f=fixture({graph:{sides:[]},curveRows:[],clock:Clock});f.api.poll();await flush();
+ const first=f.api.poll().curves;
+ assert.equal(first.data.sessionsFetchedAt,100000);
+ now+=31000;
+ f.api.poll(first.owner+':'+first.data.savedAt);await flush();
+ const next=f.api.poll(first.owner+':'+first.data.savedAt).curves;
+ assert.ok(next);assert.equal(next.data.sessionsFetchedAt,131000);
+ assert.deepEqual(next.data.sessions,first.data.sessions);
 });

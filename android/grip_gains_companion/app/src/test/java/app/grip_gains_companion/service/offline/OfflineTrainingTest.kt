@@ -224,4 +224,26 @@ class OfflineTrainingTest {
         t.cacheCurves("7",JSONObject(cache.toString()).put("sessions",JSONArray().put(row)))
         assertEquals(70.0,t.history("crusher","left").single().hold,0.0)
     }
+
+    @Test fun freshServerSnapshotRemovesDeletedImportedSetsButPreservesPendingSets() {
+        for(gripper in listOf("prime","crusher","micro")) {
+            val (t,_)=training();t.accountSeen("7","Test")
+            t.start(gripper,"left",20.0,1,0,0)
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep()
+            t.acknowledge(t.queue().single().getString("id"))
+            val ack=t.state.getJSONArray("localHistory").getJSONObject(0).getLong("acknowledgedAt")
+            val cache=JSONObject().put("sides",JSONArray()).put("sessions",JSONArray()).put("sessionsFetchedAt",ack-1)
+            t.cacheCurves("7",cache)
+            assertEquals(1,t.history(gripper,"left").size)
+            t.start(gripper,"left",22.0,1,0,0)
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(40));t.endRep()
+            t.cacheCurves("7",JSONObject(cache.toString()).put("sessionsFetchedAt",ack+1))
+            assertEquals(1,t.history(gripper,"left").size)
+            assertTrue(t.history(gripper,"left").single().pending)
+            assertEquals(0,t.state.getJSONArray("localHistory").length())
+            t.acknowledge(t.queue().single().getString("id"))
+            t.cacheCurves("7",JSONObject(cache.toString()).put("sessionsFetchedAt",Long.MAX_VALUE))
+            assertTrue(training().first.history(gripper,"left").isEmpty())
+        }
+    }
 }
