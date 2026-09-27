@@ -145,4 +145,26 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithTag("offline-last-zone-set").assertTextContains("days ago",substring=true)
         ui.onNodeWithTag("offline-timer").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,File(context.cacheDir,"offline-history-test.png").outputStream())
     }
+
+    @Test fun switchingGripperOrHandClearsPreviousTargetsWithoutARecommendation() {
+        fun enter() {
+            ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
+            ui.onNodeWithText("Reps (1–100)").performScrollTo().performTextReplacement("3")
+            ui.onNodeWithText("Target hold (s, optional)").performScrollTo().performTextReplacement("90")
+        }
+        fun cleared() {
+            for(label in listOf("Weight (kg)","Reps (1–100)","Target hold (s, optional)"))
+                ui.onNodeWithText(label).performScrollTo().assertTextEquals(label,"")
+            ui.onNodeWithText("Start set").performScrollTo().assertIsNotEnabled()
+        }
+        enter()
+        ui.onNodeWithText("Crusher").performScrollTo().performClick()
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("20")
+        for(gripper in listOf("Prime","Micro","Crusher")) {
+            ui.onNodeWithText(gripper).performScrollTo().performClick();cleared();enter()
+        }
+        for(hand in listOf("Right","Left")) {
+            ui.onNodeWithText(hand).performScrollTo().performClick();cleared();enter()
+        }
+    }
 }

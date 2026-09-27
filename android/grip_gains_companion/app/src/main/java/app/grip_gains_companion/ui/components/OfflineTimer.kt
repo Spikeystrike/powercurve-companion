@@ -61,8 +61,8 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
         val active=training.active
         if(active==null) {
             Text("Sets are saved on this phone and imported automatically when connected.",style=MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})} }
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})}}
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={if(gripper!=item){gripper=item;weight="";reps="";targetTime=""}},label={Text(item.replaceFirstChar(Char::uppercase))})} }
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={if(side!=item){side=item;weight="";reps="";targetTime=""}},label={Text(item.replaceFirstChar(Char::uppercase))})}}
             var edited by rememberSaveable(gripper,side) {mutableStateOf(false)}
             val curve=training.curve(gripper,side)
             val history=remember(revision,gripper,side) {training.history(gripper,side)}

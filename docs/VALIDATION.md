@@ -1,5 +1,14 @@
 # Validation
 
+## 0.1.14
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built successfully (versionCode 16 / versionName 0.1.14). All 46 JVM/Robolectric tests and 7 Android emulator instrumented tests passed.
+- New sync regression test simulates null/missing page state and a signed-out page with zero queued sets, checks retry spacing and no retries offline, then verifies history refresh after recovery.
+- New Android UI test checks Prime/Micro/Crusher and left/right switches clear weight, reps and target hold and prevent starting with stale values. Clicking the current selection preserves manual input.
+- Healthy page polling, curve selection and existing storage/timer tests pass. Authenticated production-account and physical-device behavior remain unverified; existing lint limitations remain.
+
 ## 0.1.13
 
 Local validation on 2026-09-27:
