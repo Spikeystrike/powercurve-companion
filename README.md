@@ -28,12 +28,14 @@ A valid target is required. Changing the target or reconnecting the sensor requi
 
 Without internet, use the **Offline set timer**. Bluetooth measurements and the live force graph remain available with a connected sensor. Enable **Show Force Graph** to keep the graph panel expanded.
 
-1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to set the timer weight, target hold time and recommended reps. The weight axis starts just below the lowest plotted weight. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. Entering a weight updates target hold time and the standard reps for its calculated zone. **Match hold time** accepts **1–400 seconds** when the saved curve supports that time. The graph remains capped at **300 seconds**.
+1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to set the timer weight, target hold time and recommended reps. The selected point, axis values and guide lines update with zone selection or direct weight entry. Both guide lines stop at the point. The weight axis starts just below the lowest plotted weight. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. Entering a weight updates target hold time and the standard reps for its calculated zone. **Match hold time** accepts **1–400 seconds** when the saved curve supports that time. The graph remains capped at **300 seconds**.
 2. Set reps, rest and countdown. **Target hold** is optional and can be edited. During the first rep only, **Target countdown** shows the remaining target time and becomes negative when exceeded.
 3. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set. **Discard set without saving** abandons the current set, including completed reps, without adding it to the sync queue.
 4. Start another set whenever you are ready.
 
 The offline graph shows the **last 60 sets per gripper and hand**, including locally saved sets waiting to sync. Older sets fade by their rank in the sequence, not by elapsed days. The newest set in each time zone uses its zone color and an outline. A set’s time and zone use its longest completed rep. Select a zone to see its latest set’s date/time, weight, hold time and calendar days ago. History remains visible even when no fitted curve is available.
+
+The zone with the oldest last set is preselected. Untrained zones come first; ties follow Endurance-to-Power order. Locally saved sets are included, and manual edits are preserved during cache updates.
 
 Curves are stored per account, gripper and hand. Connect once to cache a fitted curve; unavailable zones need more training data. The saved timestamp is shown, and pending sets affect the curve after synchronization and online recalculation.
 
@@ -50,6 +52,8 @@ Synchronization uses the account associated with the saved sets. If you trained 
 Imported sets include the date, gripper, side, weight and individual rep durations. Countdown and rest settings remain local. Raw force curves and local history stay on your phone.
 
 ## WH-C06 setup
+
+After selecting the scale once, the app remembers it across restarts and waits for its readings even if the scale is switched on later. Turning the scale off and on does not require restarting the app. Failed Bluetooth scans retry after 30 seconds.
 
 **Connected** appears once measurements arrive. After 15 seconds without readings, the app shows **Reconnecting** and keeps listening.
 

@@ -68,6 +68,7 @@ class OfflineUiInstrumentedTest {
             training.accountSeen("curve-test","Test")
             training.cacheCurves("curve-test",JSONObject("""{"savedAt":1790500000000,"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[{"hold":40},{"hold":60},{"hold":100},{"hold":150},{"hold":230}],"zone_characteristic_times":{"power":40,"power_strength":60,"strength":100,"strength_endurance":150,"endurance":230}}]}"""))
         }
+        ui.onNodeWithText("Endurance").assertIsSelected()
         ui.onNodeWithText("Hold time (s) vs weight (kg)").performScrollTo().assertIsDisplayed()
         ui.onNodeWithText("Endurance",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
         ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
@@ -79,7 +80,24 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")
         ui.onNodeWithText("Strength · 101 s estimated hold",substring=true).performScrollTo().assertIsDisplayed()
+        ui.onNodeWithTag("offline-curve-readout").performScrollTo().assertTextContains("25.00 kg",substring=true)
+        ui.onNodeWithTag("selected-weight-axis").assertTextContains("25.00 kg",substring=true)
+        ui.onNodeWithTag("selected-time-axis").assertTextContains("100.8 s",substring=true)
+        ui.onNodeWithTag("offline-curve-plot").performScrollTo()
+        val plot=ui.onNodeWithTag("offline-curve-plot").captureToImage().toPixelMap()
+        val min=40*kotlin.math.ln(400.0/300)*0.45359237*0.95
+        val max=40*kotlin.math.ln(400.0/30)*0.45359237
+        val px=((25-min)/(max-min)*plot.width).toInt()
+        val py=((300-400*kotlin.math.exp(-0.025*25/0.45359237))/270*plot.height).toInt()
+        fun guideAt(x:Int,y:Int): Boolean = (-1..1).any {dx->(-1..1).any {dy->
+            val c=plot[(x+dx).coerceIn(0,plot.width-1),(y+dy).coerceIn(0,plot.height-1)]
+            c.red>c.blue+0.2f && c.green>c.blue+0.1f
+        }}
+        assertTrue(guideAt(px,(py+plot.height)/2));assertTrue(guideAt(px/2,py))
+        assertFalse(guideAt(px,py/2));assertFalse(guideAt((px+plot.width)/2,py))
         ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("10")
+        ui.onNodeWithTag("offline-curve-readout").performScrollTo().assertTextContains("10.00 kg",substring=true)
+        ui.onNodeWithTag("selected-weight-axis").assertTextContains("10.00 kg",substring=true)
         ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("231")
         ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("4")
         ui.onNodeWithText("Match hold time (1–400 s)").performScrollTo().performTextReplacement("1")

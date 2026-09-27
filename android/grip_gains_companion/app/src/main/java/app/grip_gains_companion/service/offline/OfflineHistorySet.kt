@@ -37,6 +37,11 @@ data class OfflineHistorySet(val date: String, val pounds: Double, val hold: Dou
             }
             return result.sortedByDescending {it.timestamp}
         }
+        fun oldestZone(history: List<OfflineHistorySet>): Int {
+            val latest=history.groupBy {it.zone}.mapValues {entry->entry.value.maxOf {it.timestamp}}
+            // Never trained first; ties follow the displayed Endurance-to-Power order.
+            return OfflineCurve.zones.indices.reversed().minBy {latest[it] ?: Long.MIN_VALUE}
+        }
         fun opacity(rank: Int, count: Int): Float = if(count<=1) 1f else 1f-0.8f*rank.coerceIn(0,count-1)/(count-1)
     }
 }

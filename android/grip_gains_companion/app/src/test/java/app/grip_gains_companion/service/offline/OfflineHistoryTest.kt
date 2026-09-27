@@ -41,4 +41,14 @@ class OfflineHistoryTest {
         assertEquals("2026-09-25T12:00:00Z",history.first().date)
         assertTrue(history.first().pending)
     }
+    @Test fun preselectsZoneWhoseLatestSetIsOldestIncludingLocalSets() {
+        val rows=listOf(40.0,60.0,100.0,150.0,220.0).mapIndexed {i,hold ->
+            OfflineHistorySet("2026-09-"+(20+i)+"T12:00:00Z",40.0,hold,"crusher","left",listOf(hold),false)
+        }
+        assertEquals(0,OfflineHistorySet.oldestZone(rows))
+        val pending=rows[0].copy(date="2026-09-27T12:00:00Z",pending=true)
+        assertEquals(1,OfflineHistorySet.oldestZone(rows+pending))
+        assertEquals(4,OfflineHistorySet.oldestZone(emptyList()))
+        assertEquals(3,OfflineHistorySet.oldestZone(listOf(rows[4])))
+    }
 }

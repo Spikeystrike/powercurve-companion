@@ -40,6 +40,7 @@ class BluetoothManager(private val context: Context) {
         private const val PREFS_NAME = "bluetooth_prefs"
         private const val KEY_SELECTED_DEVICE_TYPE = "selected_device_type"
         private const val KEY_LAST_CONNECTED_DEVICE = "last_connected_device"
+        private const val KEY_LAST_CONNECTED_TYPE = "last_connected_type"
         private val CLIENT_CHARACTERISTIC_CONFIG: UUID =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
@@ -123,6 +124,14 @@ class BluetoothManager(private val context: Context) {
         return permissions.all { androidx.core.content.ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
     }
 
+    private val scanRetry = Runnable {
+        if (shouldAutoReconnect && pendingDevice?.type == DeviceType.WEIHENG_WHC06) {
+            connectWHC06(pendingDevice!!)
+        } else {
+            startScanning()
+        }
+    }
+
     fun startScanning() {
         // Re-entering the screen must not restart the WH-C06 measurement scan.
         if (scanRunning || _connectionState.value == ConnectionState.Connected || _connectionState.value == ConnectionState.Connecting) return
@@ -146,6 +155,13 @@ class BluetoothManager(private val context: Context) {
             }
         }
 
+        val savedType = DeviceType.fromString(prefs.getString(KEY_LAST_CONNECTED_TYPE, null)) ?: _selectedDeviceType.value
+        val savedAddress = lastConnectedDeviceAddress
+        if (savedAddress != null && savedType == DeviceType.WEIHENG_WHC06) {
+            connect(ForceDevice(savedAddress, "WH-C06", savedType))
+            return
+        }
+
         _discoveredDevices.value = emptyList()
         _connectionState.value = ConnectionState.Scanning
 
@@ -166,6 +182,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun stopScanning() {
+        handler.removeCallbacks(scanRetry)
         if (scanRunning && hasBlePermission()) bluetoothLeScanner?.stopScan(scanCallback)
         scanRunning = false
         if (_connectionState.value == ConnectionState.Scanning) {
@@ -191,17 +208,17 @@ class BluetoothManager(private val context: Context) {
                 }
             }
 
-            if (deviceName != null && deviceName.isNotBlank()) {
+            run {
                 val inferredType = when {
-                    deviceName.contains("Progressor", ignoreCase = true) -> DeviceType.TINDEQ_PROGRESSOR
-                    deviceName.contains("PitchSix", ignoreCase = true) || deviceName.contains("Force Board", ignoreCase = true) -> DeviceType.PITCH_SIX_FORCE_BOARD
-                    deviceName.contains("WH-C06", ignoreCase = true) || deviceName.contains("IF_B7", ignoreCase = true) -> DeviceType.WEIHENG_WHC06
-                    else -> null
+                    deviceName.orEmpty().contains("Progressor", ignoreCase = true) -> DeviceType.TINDEQ_PROGRESSOR
+                    deviceName.orEmpty().contains("PitchSix", ignoreCase = true) || deviceName.orEmpty().contains("Force Board", ignoreCase = true) -> DeviceType.PITCH_SIX_FORCE_BOARD
+                    deviceName.orEmpty().contains("WH-C06", ignoreCase = true) || deviceName.orEmpty().contains("IF_B7", ignoreCase = true) -> DeviceType.WEIHENG_WHC06
+                    else -> DeviceType.detect(result)
                 }
 
                 if (inferredType != null) {
                     val device = ForceDevice.fromScanResult(result, inferredType)
-                        ?: ForceDevice(deviceAddress, deviceName, inferredType)
+                        ?: ForceDevice(deviceAddress, deviceName ?: inferredType.displayName, inferredType)
 
                     val currentList = _discoveredDevices.value.toMutableList()
                     val existingIndex = currentList.indexOfFirst { it.address == device.address }
@@ -210,7 +227,7 @@ class BluetoothManager(private val context: Context) {
                         currentList[existingIndex] = device
                     } else {
                         currentList.add(device)
-                        if (device.address == lastConnectedDeviceAddress) {
+                        if (device.address == lastConnectedDeviceAddress && _connectionState.value == ConnectionState.Scanning) {
                             connect(device)
                         }
                     }
@@ -225,7 +242,9 @@ class BluetoothManager(private val context: Context) {
 
         override fun onScanFailed(errorCode: Int) {
             scanRunning = false
-            _connectionState.value = ConnectionState.Error("Scan failed: $errorCode")
+            _connectionState.value = ConnectionState.Error("Scan failed: $errorCode; retrying")
+            handler.removeCallbacks(scanRetry)
+            handler.postDelayed(scanRetry, 30_000L)
         }
     }
 
@@ -239,6 +258,7 @@ class BluetoothManager(private val context: Context) {
         bluetoothGatt = null
 
         pendingDevice = device
+        prefs.edit().putString(KEY_LAST_CONNECTED_TYPE, device.type.name).apply()
         shouldAutoReconnect = true
         _connectionState.value = ConnectionState.Connecting
 
@@ -313,7 +333,7 @@ class BluetoothManager(private val context: Context) {
 
         if (!preserveAutoReconnect) {
             lastConnectedDeviceAddress = null
-            prefs.edit().remove(KEY_LAST_CONNECTED_DEVICE).apply()
+            prefs.edit().remove(KEY_LAST_CONNECTED_DEVICE).remove(KEY_LAST_CONNECTED_TYPE).apply()
         }
 
         _discoveredDevices.value = emptyList()

@@ -1,5 +1,14 @@
 # Validation
 
+## 0.1.11
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built successfully (versionCode 13 / versionName 0.1.11).
+- All 42 JVM/Robolectric tests passed. New coverage checks oldest-zone selection including local history, and a saved WH-C06 switched on after 60 seconds without a device name, reconnecting after silence, scan failure recovery, and preserving the remembered device on shutdown.
+- All 6 Android emulator instrumented tests passed. Curve checks verify Endurance is initially selected with no history, axis labels and readout follow selection and direct weight entry, and pixel checks confirm both guides stop at the selected point. Existing 300-second graph cap, matching, timer, storage and background checks also pass.
+- Physical WH-C06 behavior and authenticated production-account checks remain unverified. Existing project-wide lint limitations remain.
+
 ## 0.1.10
 
 Local validation on 2026-09-27:

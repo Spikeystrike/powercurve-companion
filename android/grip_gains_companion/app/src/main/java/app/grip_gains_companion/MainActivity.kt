@@ -708,6 +708,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         unregisterReceiver(failRepReceiver)
         webViewBridge.offline.close()
-        bluetoothManager.disconnect()
+        bluetoothManager.disconnect(preserveAutoReconnect = true)
     }
 }

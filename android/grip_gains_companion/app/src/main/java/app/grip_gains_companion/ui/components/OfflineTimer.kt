@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import app.grip_gains_companion.service.offline.OfflineCurve
+import app.grip_gains_companion.service.offline.OfflineHistorySet
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -62,18 +63,28 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             Text("Sets are saved on this phone and imported automatically when connected.",style=MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})} }
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})}}
+            var edited by rememberSaveable(gripper,side) {mutableStateOf(false)}
             val curve=training.curve(gripper,side)
             val history=remember(revision,gripper,side) {training.history(gripper,side)}
+            LaunchedEffect(curve,history,gripper,side) {
+                if(!edited) curve?.match(OfflineHistorySet.oldestZone(history),useLbs)?.let {match->
+                    weight=String.format(java.util.Locale.US,"%.2f",match.weight)
+                    reps=match.zone.reps.toString();targetTime=match.seconds.toString()
+                }
+            }
+            key(gripper,side) {
             OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull(),history,targetTime.toIntOrNull()) { match ->
+                edited=true
                 weight=String.format(java.util.Locale.US,"%.2f",match.weight)
                 reps=match.zone.reps.toString()
                 targetTime=match.seconds.toString()
             }
-            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(weight,{weight=it;val match=curve?.estimate(it.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);targetTime=match?.seconds?.toString() ?: "";if(match!=null) reps=match.zone.reps.toString()},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
-                OutlinedTextField(reps,{reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
             }
-            OutlinedTextField(targetTime,{targetTime=it},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(weight,{edited=true;weight=it;val match=curve?.estimate(it.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);targetTime=match?.seconds?.toString() ?: "";if(match!=null) reps=match.zone.reps.toString()},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(reps,{edited=true;reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
+            }
+            OutlinedTextField(targetTime,{edited=true;targetTime=it},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(rest,{rest=it},label={Text("Rest (0–600 s)")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(countdown,{countdown=it},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
