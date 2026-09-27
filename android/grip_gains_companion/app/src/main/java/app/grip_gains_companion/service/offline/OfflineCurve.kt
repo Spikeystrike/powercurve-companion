@@ -52,9 +52,16 @@ class OfflineCurve(private val data: JSONObject) {
     fun estimate(weight: Double, lbs: Boolean): Match? {
         if(!weight.isFinite() || weight<=0) return null
         val seconds=hold(if(lbs) weight else weight/0.45359237)
-        if(!seconds.isFinite() || seconds < 29.5 || seconds >= 300.5) return null
+        if(!seconds.isFinite() || seconds < 0.5 || seconds >= 400.5) return null
         val rounded=seconds.roundToInt(); val index=zone(rounded.toDouble())
         return if(supported(index)) Match(weight,rounded,zones[index]) else null
+    }
+    fun matchTime(seconds: Double, lbs: Boolean): Match? {
+        if(!seconds.isFinite() || seconds !in 1.0..400.0) return null
+        val weight=pounds(seconds)
+        // Do not present a clipped inverse as a valid match for an unreachable time.
+        if(weight<0.000001 || kotlin.math.abs(hold(weight)-seconds)>0.001) return null
+        return estimate(weight*(if(lbs) 1.0 else 0.45359237),lbs)
     }
     fun match(index: Int, lbs: Boolean): Match? {
         if(!supported(index)) return null

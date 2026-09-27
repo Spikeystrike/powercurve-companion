@@ -1,5 +1,16 @@
 # Validation
 
+## 0.1.10
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built successfully (versionCode 12 / versionName 0.1.10).
+- 40 JVM/Robolectric tests passed. Added inverse-matching coverage for 1, 20, 100, 350 and 400 seconds in kg/lb, invalid limits and unreachable curve targets.
+- All 6 Android emulator instrumented tests passed. UI checks verify manual 10 kg input updates the fixture target to 231 seconds and 4 reps, matching 1 second sets 6 reps, and a 350-second target leaves the graph capped at 300 seconds.
+- The background pixel test now samples inside the app content rather than the test activity's overlapping system status bar.
+- Physical-device and authenticated production-account checks remain unverified; existing lint limitations remain.
+
+
 ## 0.1.9
 
 Local validation on 2026-09-27:

@@ -79,12 +79,27 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")
         ui.onNodeWithText("Strength · 101 s estimated hold",substring=true).performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("10")
+        ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("231")
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("4")
+        ui.onNodeWithText("Match hold time (1–400 s)").performScrollTo().performTextReplacement("1")
+        ui.onNodeWithText("Match",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("1")
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("6")
+        ui.onNodeWithText("Match hold time (1–400 s)").performScrollTo().performTextReplacement("350")
+        ui.onNodeWithText("Match",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("350")
+        ui.onNodeWithText("300 s").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("350 s").assertDoesNotExist()
+        ui.onNodeWithText("Local set timer").performScrollTo()
+        ui.waitForIdle()
         ui.onNodeWithTag("offline-timer").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,File(context.cacheDir,"offline-curve-test.png").outputStream())
         val before=ui.onNodeWithTag("offline-timer").captureToImage().toPixelMap()
         ui.runOnUiThread {panelHeight.value=420.dp}
         val after=ui.onNodeWithTag("offline-timer").captureToImage().toPixelMap()
-        assertEquals(Color(0xFF1A2231),before[before.width-1,2])
-        assertEquals(before[before.width-1,2],after[after.width-1,2])
+        // Sample the app background below the status-bar overlap of the test activity.
+        assertEquals(Color(0xFF1A2231),before[before.width-1,100])
+        assertEquals(before[before.width-1,100],after[after.width-1,100])
     }
     @Test fun targetCountdownAndDiscardControlsAreAvailableDuringARep() {
         ui.runOnUiThread {training.start("crusher","left",20.0,3,0,0,5)}

@@ -72,4 +72,17 @@ class OfflineCurveTest {
         assertEquals(300.0,curve.inspectPlot(0.0,range).seconds,0.000001)
         assertEquals(30.0,curve.inspectPlot(1.0,range).seconds,0.000001)
     }
+    @Test fun holdTimeMatchingSupportsOneToFourHundredSecondsInBothUnits() {
+        val fixture=data();fixture.getJSONObject("params").put("a",600)
+        val curve=OfflineCurve(fixture)
+        for(lbs in listOf(false,true)) for(seconds in listOf(1.0,20.0,100.0,350.0,400.0)) {
+            val match=curve.matchTime(seconds,lbs)!!
+            assertEquals(seconds.toInt(),match.seconds)
+            assertEquals(seconds,curve.hold(if(lbs) match.weight else match.weight/0.45359237),0.000001)
+            assertEquals(OfflineCurve.zones[OfflineCurve.zone(seconds)].reps,match.zone.reps)
+        }
+        assertNull(curve.matchTime(0.0,false));assertNull(curve.matchTime(401.0,false));assertNull(curve.matchTime(Double.NaN,false))
+        fixture.getJSONObject("params").put("a",200)
+        assertNull(OfflineCurve(fixture).matchTime(400.0,false))
+    }
 }

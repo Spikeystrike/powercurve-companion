@@ -1,6 +1,7 @@
 package app.grip_gains_companion.ui.components
 
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
@@ -32,10 +33,10 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     val unit=if(lbs) "lb" else "kg"
     val factor=if(lbs) 1.0 else 0.45359237
     val curveRange=remember(curve) {curve?.plotRange()}
-    val minPounds=remember(curveRange,points) { minOf(curveRange?.minimum ?: Double.MAX_VALUE,points.minOfOrNull {it.pounds*0.95} ?: Double.MAX_VALUE) }
-    val maxPounds=remember(curveRange,points) { maxOf(curveRange?.maximum ?: 0.0,points.maxOfOrNull {it.pounds*1.02} ?: 0.0,minPounds+0.001) }
-    val minTime=remember(points) {minOf(30.0,points.minOfOrNull {it.hold} ?: 30.0)}
-    val maxTime=remember(points) {maxOf(300.0,points.maxOfOrNull {it.hold*1.02} ?: 300.0)}
+    val minPounds=remember(curveRange,points,weight) { minOf(weight?.takeIf {it.isFinite() && it>0}?.let {it/factor*0.95} ?: Double.MAX_VALUE,curveRange?.minimum ?: Double.MAX_VALUE,points.minOfOrNull {it.pounds*0.95} ?: Double.MAX_VALUE) }
+    val maxPounds=remember(curveRange,points,weight) { maxOf(weight?.takeIf {it.isFinite() && it>0}?.let {it/factor*1.02} ?: 0.0,curveRange?.maximum ?: 0.0,points.maxOfOrNull {it.pounds*1.02} ?: 0.0,minPounds+0.001) }
+    val minTime=remember(points,targetSeconds) {minOf(targetSeconds?.toDouble()?.coerceAtLeast(1.0) ?: 30.0,30.0,points.minOfOrNull {it.hold} ?: 30.0)}
+    val maxTime=300.0
     val timeSpan=maxTime-minTime
     val minWeight=minPounds*factor;val maxWeight=maxPounds*factor;val weightSpan=maxWeight-minWeight
     val currentSelect by rememberUpdatedState(select)
@@ -57,7 +58,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
             Text("${minTime.roundToInt()} s",style=MaterialTheme.typography.labelSmall)
         }
         Column(Modifier.weight(1f).padding(start=8.dp)) {
-            Box(Modifier.fillMaxWidth().height(170.dp).testTag("offline-curve-plot")
+            Box(Modifier.fillMaxWidth().height(170.dp).clipToBounds().testTag("offline-curve-plot")
                 .pointerInput(curve,lbs,minPounds,maxPounds) {
                     detectTapGestures {position->
                         if(size.width>0 && curve!=null && curveRange!=null) {
@@ -124,9 +125,9 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
         ?: "Choose a zone to view its last set. Recommendations require supporting curve data.",style=MaterialTheme.typography.bodySmall)
     var time by rememberSaveable {mutableStateOf("")}
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(time,{time=it},label={Text("Match hold time (30–300 s)")},singleLine=true,modifier=Modifier.weight(1f))
-        val seconds=time.toDoubleOrNull()
-        val match=seconds?.takeIf {it.isFinite() && it in 30.0..300.0}?.let {curve?.estimate(curve.pounds(it)*factor,lbs)}
+        OutlinedTextField(time,{time=it},label={Text("Match hold time (1–400 s)")},singleLine=true,modifier=Modifier.weight(1f))
+        val seconds=time.replace(',','.').toDoubleOrNull()
+        val match=seconds?.let {curve?.matchTime(it,lbs)}
         TextButton(onClick={match?.let(select)},enabled=match!=null) {Text("Match")}
     }
     if(savedAt!=null) Text("Saved curve · ${DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(Date(savedAt))}. Local sets appear immediately; the fit updates after sync.",style=MaterialTheme.typography.bodySmall)

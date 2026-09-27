@@ -70,7 +70,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
                 targetTime=match.seconds.toString()
             }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(weight,{weight=it;targetTime=curve?.estimate(it.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs)?.seconds?.toString() ?: ""},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(weight,{weight=it;val match=curve?.estimate(it.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);targetTime=match?.seconds?.toString() ?: "";if(match!=null) reps=match.zone.reps.toString()},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(reps,{reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
             }
             OutlinedTextField(targetTime,{targetTime=it},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
