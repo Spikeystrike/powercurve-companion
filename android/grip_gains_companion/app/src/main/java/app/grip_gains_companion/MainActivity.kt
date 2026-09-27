@@ -397,7 +397,7 @@ class MainActivity : ComponentActivity() {
                                     onWeightChange = { newWeight -> currentManualWeight = newWeight },
                                     onDismiss = { navController.popBackStack() },
                                     onDisconnect = { bluetoothManager.disconnect() },
-                                    onConnectDevice = { bluetoothManager.startScanning(); navController.popBackStack() },
+                                    onConnectDevice = { bluetoothManager.restartScanning(); navController.popBackStack() },
                                     onRecalibrate = {
                                         progressorHandler.recalibrate()
                                         lifecycleScope.launch { snackbarHostState.showSnackbar("Scale Zeroed") }

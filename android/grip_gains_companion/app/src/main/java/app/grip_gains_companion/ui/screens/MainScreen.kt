@@ -364,7 +364,7 @@ fun MainScreen(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         if (runCatching { btAdapter?.isEnabled == true }.getOrDefault(false)) {
-                                            bluetoothManager.startScanning()
+                                            bluetoothManager.restartScanning()
                                             showTensionSheet = true
                                         } else {
                                             enableBluetoothLauncher.launch(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))

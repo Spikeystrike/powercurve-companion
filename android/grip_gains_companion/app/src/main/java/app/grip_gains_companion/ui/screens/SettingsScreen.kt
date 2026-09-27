@@ -157,7 +157,7 @@ fun SettingsScreen(
                         onClick = {
                             val isBtOn = runCatching { btAdapter?.isEnabled == true }.getOrDefault(false)
                             if (isBtOn) {
-                                bluetoothManager.startScanning()
+                                bluetoothManager.restartScanning()
                                 showTensionSheet = true
                             } else {
                                 enableBluetoothLauncher.launch(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))

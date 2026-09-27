@@ -33,7 +33,7 @@ class BluetoothManagerTest {
         manager.startScanning()
         assertEquals(ConnectionState.Connecting, manager.connectionState.value)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(60))
-        assertEquals(ConnectionState.Reconnecting, manager.connectionState.value)
+        assertEquals(ConnectionState.Connecting, manager.connectionState.value)
         val field = BluetoothManager::class.java.getDeclaredField("scanCallback").apply { isAccessible = true }
         val callback = field.get(manager) as ScanCallback
         val payload = ByteArray(15).apply { this[10] = 7; this[11] = 0xd0.toByte(); this[14] = 1 }
@@ -46,6 +46,8 @@ class BluetoothManagerTest {
         callback.onScanResult(1, result)
         assertEquals(ConnectionState.Connected, manager.connectionState.value)
         assertEquals(20.0, weight, 0.001)
+        manager.restartScanning()
+        assertEquals(ConnectionState.Connected, manager.connectionState.value)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(16))
         assertEquals(ConnectionState.Reconnecting, manager.connectionState.value)
         callback.onScanResult(1, result)
@@ -58,4 +60,27 @@ class BluetoothManagerTest {
         assertEquals(address, prefs.getString("last_connected_device", null))
         assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
     }
+    @Test fun silentDiscoveryRestartsAndManualRetriesRespectCooldown() {
+        val app = RuntimeEnvironment.getApplication()
+        shadowOf(app).grantPermissions(android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_CONNECT)
+        shadowOf(BluetoothAdapter.getDefaultAdapter()).setState(BluetoothAdapter.STATE_ON)
+        app.getSharedPreferences("bluetooth_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+        val manager = BluetoothManager(app)
+        val field = BluetoothManager::class.java.getDeclaredField("lastScanStart").apply { isAccessible = true }
+        manager.startScanning()
+        val initial = field.getLong(manager)
+        repeat(10) { manager.restartScanning() }
+        assertEquals(initial, field.getLong(manager))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(8))
+        assertTrue(field.getLong(manager) >= initial + 8_000)
+        val manual = field.getLong(manager)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(30))
+        assertTrue(field.getLong(manager) >= manual + 30_000)
+        assertEquals(ConnectionState.Scanning, manager.connectionState.value)
+        manager.disconnect(preserveAutoReconnect = true)
+        val stopped = field.getLong(manager)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(60))
+        assertEquals(stopped, field.getLong(manager))
+    }
+
 }

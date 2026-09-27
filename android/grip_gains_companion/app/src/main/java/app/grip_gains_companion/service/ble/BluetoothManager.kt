@@ -19,6 +19,8 @@ import android.content.SharedPreferences
 import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
+import android.os.SystemClock
+import app.grip_gains_companion.util.AppLogger
 import android.os.Looper
 import android.util.Log
 import app.grip_gains_companion.config.AppConstants
@@ -50,6 +52,7 @@ class BluetoothManager(private val context: Context) {
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var scanRunning = false
+    private var lastScanStart = -30_000L
 
     private var bluetoothGatt: BluetoothGatt? = null
     private var notifyCharacteristic: BluetoothGattCharacteristic? = null
@@ -124,12 +127,30 @@ class BluetoothManager(private val context: Context) {
         return permissions.all { androidx.core.content.ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
     }
 
-    private val scanRetry = Runnable {
-        if (shouldAutoReconnect && pendingDevice?.type == DeviceType.WEIHENG_WHC06) {
-            connectWHC06(pendingDevice!!)
-        } else {
-            startScanning()
+    private val scanRetry = Runnable { restartScanning() }
+
+    /** Explicit user retry and silent-scan recovery; leave a healthy measurement stream alone. */
+    fun restartScanning() {
+        if (_connectionState.value == ConnectionState.Connected) return
+        handler.removeCallbacks(scanRetry)
+        val remaining = 8_000L - (SystemClock.elapsedRealtime() - lastScanStart)
+        if (remaining > 0) {
+            handler.postDelayed(scanRetry, remaining)
+            return
         }
+        AppLogger.i(TAG, "Restarting Bluetooth scan while waiting for a device")
+        stopScanning()
+        whc06Service?.stop()
+        _connectionState.value = ConnectionState.Disconnected
+        startScanning()
+    }
+
+    private fun scanStarted() {
+        scanRunning = true
+        lastScanStart = SystemClock.elapsedRealtime()
+        handler.removeCallbacks(scanRetry)
+        handler.postDelayed(scanRetry, 30_000L)
+        AppLogger.i(TAG, "Bluetooth scan started; waiting for advertisements")
     }
 
     fun startScanning() {
@@ -178,7 +199,7 @@ class BluetoothManager(private val context: Context) {
             .build()
 
         bluetoothLeScanner?.startScan(null, settings, scanCallback)
-        scanRunning = true
+        scanStarted()
     }
 
     fun stopScanning() {
@@ -231,6 +252,7 @@ class BluetoothManager(private val context: Context) {
                             connect(device)
                         }
                     }
+                    if (existingIndex < 0) AppLogger.i(TAG, "Discovered " + inferredType.displayName + " at " + deviceAddress)
                     _discoveredDevices.value = currentList
                 }
             }
@@ -241,6 +263,7 @@ class BluetoothManager(private val context: Context) {
         }
 
         override fun onScanFailed(errorCode: Int) {
+            AppLogger.w(TAG, "Bluetooth scan failed: " + errorCode)
             scanRunning = false
             _connectionState.value = ConnectionState.Error("Scan failed: $errorCode; retrying")
             handler.removeCallbacks(scanRetry)
@@ -279,6 +302,8 @@ class BluetoothManager(private val context: Context) {
             onDisconnect = {
                 if (shouldAutoReconnect) {
                     _connectionState.value = ConnectionState.Reconnecting
+                    handler.removeCallbacks(scanRetry)
+                    handler.postDelayed(scanRetry, 15_000L)
                 } else {
                     _connectionState.value = ConnectionState.Disconnected
                     _connectedDeviceName.value = null
@@ -302,14 +327,21 @@ class BluetoothManager(private val context: Context) {
         bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES).setReportDelay(0).build()
-        val filter = ScanFilter.Builder().setDeviceAddress(device.address).build()
+        // Also discover a restarted scale with a different address. Only the selected
+        // address emits measurements; other devices remain available for explicit selection.
+        val filters = listOf(
+            ScanFilter.Builder().setDeviceAddress(device.address).build(),
+            ScanFilter.Builder().setManufacturerData(AppConstants.WHC06_MANUFACTURER_ID, byteArrayOf()).build(),
+            ScanFilter.Builder().setDeviceName("WH-C06").build(),
+            ScanFilter.Builder().setDeviceName("IF_B7").build()
+        )
         if (bluetoothLeScanner == null) {
             _connectionState.value = ConnectionState.Error("Bluetooth scanner unavailable")
             whc06Service?.stop()
             return
         }
-        bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
-        scanRunning = true
+        bluetoothLeScanner?.startScan(filters, settings, scanCallback)
+        scanStarted()
     }
 
     fun disconnect(preserveAutoReconnect: Boolean = false) {

@@ -28,7 +28,7 @@ A valid target is required. Changing the target or reconnecting the sensor requi
 
 Without internet, use the **Offline set timer**. Bluetooth measurements and the live force graph remain available with a connected sensor. Enable **Show Force Graph** to keep the graph panel expanded.
 
-1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to set the timer weight, target hold time and recommended reps. The selected point, axis values and guide lines update with zone selection or direct weight entry. Both guide lines stop at the point. The weight axis starts just below the lowest plotted weight. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. Entering a weight updates target hold time and the standard reps for its calculated zone. **Match hold time** accepts **1–400 seconds** when the saved curve supports that time. The graph remains capped at **300 seconds**.
+1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to set the timer weight, target hold time and recommended reps. The selected point, axis values and guide lines update with zone selection or direct weight entry. Both guide lines stop at the point. The weight axis starts just below the lowest plotted weight. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. Entering a weight updates target hold time and the standard reps for its calculated zone. **Match hold time** accepts **1–400 seconds** when the saved curve supports that time. The time axis always spans **0–300 seconds**.
 2. Set reps, rest and countdown. **Target hold** is optional and can be edited. During the first rep only, **Target countdown** shows the remaining target time and becomes negative when exceeded.
 3. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set. **Discard set without saving** abandons the current set, including completed reps, without adding it to the sync queue.
 4. Start another set whenever you are ready.
@@ -53,7 +53,7 @@ Imported sets include the date, gripper, side, weight and individual rep duratio
 
 ## WH-C06 setup
 
-After selecting the scale once, the app remembers it across restarts and waits for its readings even if the scale is switched on later. Turning the scale off and on does not require restarting the app. Failed Bluetooth scans retry after 30 seconds.
+After selecting the scale once, the app remembers it across restarts and waits for its readings even if the scale is switched on later. Turning the scale off and on does not require restarting the app. Failed or silent scans restart after 30 seconds. Tapping the Bluetooth status requests a fresh scan when disconnected; rapid taps are spaced by at least 8 seconds. Discovery also lists WH-C06 devices advertising from a different address; select the device from the list if its address changed. Scan starts, failures and discovered devices appear in the app logs.
 
 **Connected** appears once measurements arrive. After 15 seconds without readings, the app shows **Reconnecting** and keeps listening.
 

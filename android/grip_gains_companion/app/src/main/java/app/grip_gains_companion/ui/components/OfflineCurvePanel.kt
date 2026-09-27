@@ -36,7 +36,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     val curveRange=remember(curve) {curve?.plotRange()}
     val minPounds=remember(curveRange,points,weight) { minOf(weight?.takeIf {it.isFinite() && it>0}?.let {it/factor*0.95} ?: Double.MAX_VALUE,curveRange?.minimum ?: Double.MAX_VALUE,points.minOfOrNull {it.pounds*0.95} ?: Double.MAX_VALUE) }
     val maxPounds=remember(curveRange,points,weight) { maxOf(weight?.takeIf {it.isFinite() && it>0}?.let {it/factor*1.02} ?: 0.0,curveRange?.maximum ?: 0.0,points.maxOfOrNull {it.pounds*1.02} ?: 0.0,minPounds+0.001) }
-    val minTime=remember(points,targetSeconds) {minOf(targetSeconds?.toDouble()?.coerceAtLeast(1.0) ?: 30.0,30.0,points.minOfOrNull {it.hold} ?: 30.0)}
+    val minTime=0.0
     val maxTime=300.0
     val timeSpan=maxTime-minTime
     val minWeight=minPounds*factor;val maxWeight=maxPounds*factor;val weightSpan=maxWeight-minWeight

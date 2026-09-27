@@ -84,11 +84,12 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithTag("selected-weight-axis").assertTextContains("25.00 kg",substring=true)
         ui.onNodeWithTag("selected-time-axis").assertTextContains("100.8 s",substring=true)
         ui.onNodeWithTag("offline-curve-plot").performScrollTo()
+        ui.onNodeWithText("0 s").assertExists()
         val plot=ui.onNodeWithTag("offline-curve-plot").captureToImage().toPixelMap()
         val min=40*kotlin.math.ln(400.0/300)*0.45359237*0.95
         val max=40*kotlin.math.ln(400.0/30)*0.45359237
         val px=((25-min)/(max-min)*plot.width).toInt()
-        val py=((300-400*kotlin.math.exp(-0.025*25/0.45359237))/270*plot.height).toInt()
+        val py=((300-400*kotlin.math.exp(-0.025*25/0.45359237))/300*plot.height).toInt()
         fun guideAt(x:Int,y:Int): Boolean = (-1..1).any {dx->(-1..1).any {dy->
             val c=plot[(x+dx).coerceIn(0,plot.width-1),(y+dy).coerceIn(0,plot.height-1)]
             c.red>c.blue+0.2f && c.green>c.blue+0.1f

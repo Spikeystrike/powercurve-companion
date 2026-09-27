@@ -1,5 +1,15 @@
 # Validation
 
+## 0.1.12
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built successfully (versionCode 14 / versionName 0.1.12).
+- All 43 JVM/Robolectric tests passed, including automatic restart of silent discovery, manual retry cooldown, no restart during a healthy measurement stream, cancellation on shutdown and late WH-C06 packets.
+- All 6 Android emulator instrumented tests passed. The curve test verifies a zero-second axis label and guide positions against the fixed 0–300-second range.
+- The Bluetooth status action previously called the idempotent scan-start method and could not restart an internally active scan. It now requests a real restart with an 8-second minimum interval. Silent scans retry after 30 seconds; WH-C06 filters also allow discovery beyond the remembered address.
+- No physical phone was attached during validation. The user-reported WH-C06 startup-order problem is not yet confirmed resolved on hardware. Additional app logs record scan starts, failures and discovered devices. Authenticated production-account checks and existing lint limitations remain.
+
 ## 0.1.11
 
 Local validation on 2026-09-27:
