@@ -89,6 +89,16 @@ class BluetoothManager(private val context: Context) {
     private val _selectedDeviceType = MutableStateFlow(DeviceType.TINDEQ_PROGRESSOR)
     val selectedDeviceType: StateFlow<DeviceType> = _selectedDeviceType.asStateFlow()
 
+    private val sampleHandler = Handler(Looper.getMainLooper())
+    private val _receivingSamples = MutableStateFlow(false)
+    val receivingSamples = _receivingSamples.asStateFlow()
+    private val sampleExpired = Runnable { _receivingSamples.value=false }
+    private fun reportSample(weight: Double, timestamp: Long) {
+        _receivingSamples.value=true
+        sampleHandler.removeCallbacks(sampleExpired)
+        sampleHandler.postDelayed(sampleExpired, 3000)
+        onForceSample?.invoke(weight,timestamp)
+    }
     var onForceSample: ((Double, Long) -> Unit)? = null
     private var lastConnectedDeviceAddress: String? = null
 
@@ -272,6 +282,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun connect(device: ForceDevice) {
+        _receivingSamples.value=false
         if (!hasBlePermission()) return
         stopScanning()
         cancelRetryTimer()
@@ -298,7 +309,7 @@ class BluetoothManager(private val context: Context) {
         whc06Service?.stop()
         whc06Service = WHC06Service().apply {
             assumeHardwareIsLbs = hardwareUnitIsLbs
-            onForceSample = { weight, timestamp -> this@BluetoothManager.onForceSample?.invoke(weight, timestamp) }
+            onForceSample = { weight, timestamp -> reportSample(weight, timestamp) }
             onDisconnect = {
                 if (shouldAutoReconnect) {
                     _connectionState.value = ConnectionState.Reconnecting
@@ -345,6 +356,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun disconnect(preserveAutoReconnect: Boolean = false) {
+        sampleHandler.removeCallbacks(sampleExpired);_receivingSamples.value=false
         shouldAutoReconnect = false
         cancelRetryTimer()
         pendingDevice = null
@@ -483,7 +495,7 @@ class BluetoothManager(private val context: Context) {
             val timeBytes = payload.copyOfRange(offset + 4, offset + 8)
             val weightFloat = ByteBuffer.wrap(weightBytes).order(ByteOrder.LITTLE_ENDIAN).float
             val timestamp = ByteBuffer.wrap(timeBytes).order(ByteOrder.LITTLE_ENDIAN).int.toLong() and 0xFFFFFFFFL
-            onForceSample?.invoke(weightFloat.toDouble(), timestamp)
+            reportSample(weightFloat.toDouble(), timestamp)
             offset += AppConstants.PROGRESSOR_SAMPLE_SIZE
         }
     }
@@ -496,7 +508,7 @@ class BluetoothManager(private val context: Context) {
         writeCharacteristic = forceService.getCharacteristic(AppConstants.PITCH_SIX_TARE_CHARACTERISTIC_UUID)
 
         pitchSixService = PitchSixService().apply {
-            onForceSample = { weight, timestamp -> this@BluetoothManager.onForceSample?.invoke(weight, timestamp) }
+            onForceSample = { weight, timestamp -> reportSample(weight, timestamp) }
         }
         pitchSixService?.start()
         enableNotifications(gatt, notifyCharacteristic!!)

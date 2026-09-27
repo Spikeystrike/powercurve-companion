@@ -246,4 +246,36 @@ class OfflineTrainingTest {
             assertTrue(training().first.history(gripper,"left").isEmpty())
         }
     }
+
+    @Test fun pendingEditsAndDeletionPersistAndUploadingRowsAreProtected() {
+        val (t,_)=training();t.accountSeen("7","Test")
+        t.start("prime","left",20.0,1,0,0);ShadowSystemClock.advanceBy(Duration.ofSeconds(20));t.endRep()
+        val row=t.queue().single();val id=row.getString("id");val date=row.getString("date_time")
+        t.manageQueue(true);assertFalse(t.markUploading(id))
+        assertFalse(t.updatePending(id,"prime","right",-1.0,listOf(30)))
+        assertFalse(t.updatePending(id,"prime","right",22.0,listOf(0)))
+        assertTrue(t.updatePending(id,"crusher","right",22.0,listOf(30,40)))
+        val restored=training().first
+        assertEquals(date,restored.queue().single().getString("date_time"))
+        assertEquals(40.0,restored.history("crusher","right").single().hold,0.0)
+        assertTrue(restored.history("prime","left").isEmpty())
+        assertTrue(restored.markUploading(id))
+        assertFalse(restored.updatePending(id,"prime","left",20.0,listOf(10)))
+        assertFalse(restored.deletePending(id))
+        assertFalse(training().first.canEditPending(id))
+        restored.start("micro","left",10.0,1,0,0);restored.endRep()
+        val other=restored.queue().last().getString("id")
+        assertTrue(restored.deletePending(other))
+        assertEquals(1,training().first.pending)
+        assertEquals(0,restored.synced)
+    }
+    @Test fun successfulUnchangedHistoryFetchUpdatesVisibleCheckTime() {
+        val (t,_)=training();t.accountSeen("7","Test")
+        val cache=JSONObject().put("sides",JSONArray()).put("sessions",JSONArray()).put("sessionsFetchedAt",123L)
+        t.cacheCurves("7",cache);assertEquals(123L,t.historyCheckedAt)
+        t.cacheCurves("7",JSONObject(cache.toString()).put("sessionsFetchedAt",456L))
+        assertEquals(456L,t.historyCheckedAt)
+        t.cacheCurves("8",JSONObject(cache.toString()).put("sessionsFetchedAt",999L))
+        assertEquals(456L,t.historyCheckedAt)
+    }
 }

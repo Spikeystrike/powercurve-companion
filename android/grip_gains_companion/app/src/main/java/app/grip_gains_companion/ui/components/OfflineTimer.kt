@@ -20,10 +20,13 @@ import java.util.Date
 fun OfflineStatus(training: OfflineTraining) {
     val revision by training.revision.collectAsState()
     @Suppress("UNUSED_VARIABLE") val refresh=revision
+    var showPending by remember {mutableStateOf(false)}
+    if(showPending) PendingSetsDialog(training) {showPending=false;training.manageQueue(false)}
     if(training.pending==0 && training.synced==0 && training.error.isEmpty()) return
     Surface(color=MaterialTheme.colorScheme.secondaryContainer,modifier=Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal=12.dp,vertical=6.dp)) {
             if(training.pending>0) Text("${training.pending} set(s) waiting to sync",style=MaterialTheme.typography.labelLarge)
+            if(training.pending>0) TextButton(onClick={training.manageQueue(true);showPending=true}) {Text("Review pending sets")}
             if(training.pending>0 && training.syncMessage.isNotBlank()) Text(training.syncMessage,style=MaterialTheme.typography.bodySmall)
             if(training.error.isNotBlank()) { Text(training.error,color=MaterialTheme.colorScheme.error); TextButton(onClick=training::retryStorage){Text("Retry storage")} }
             if(training.needsAccount) TextButton(onClick=training::assignUnowned) {Text("Sync to ${training.accountName.ifBlank { "this account" }}")}
@@ -58,6 +61,9 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     Column(modifier.background(Color(0xFF1A2231)).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(if(training.online) "Local set timer" else "Offline set timer",style=MaterialTheme.typography.titleLarge)
+        Text(if(training.historyCheckedAt>0) "History checked: "+DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(Date(training.historyCheckedAt)) else "History has not been refreshed yet.",style=MaterialTheme.typography.bodySmall)
+        TextButton(onClick=training::refreshHistory,enabled=training.online && !training.refreshing){Text(if(training.refreshing) "Updating…" else "Update now")}
+        if(training.refreshMessage.isNotEmpty()) Text(training.refreshMessage,style=MaterialTheme.typography.bodySmall)
         val active=training.active
         if(active==null) {
             Text("Sets are saved on this phone and imported automatically when connected.",style=MaterialTheme.typography.bodySmall)

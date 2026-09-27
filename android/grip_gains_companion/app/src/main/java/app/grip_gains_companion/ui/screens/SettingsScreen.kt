@@ -97,6 +97,7 @@ fun SettingsScreen(
     val enableEndSessionOnEarlyFail by preferencesRepository.enableEndSessionOnEarlyFail.collectAsStateWithLifecycle(initialValue = false)
     val earlyFailThresholdPercent by preferencesRepository.earlyFailThresholdPercent.collectAsStateWithLifecycle(initialValue = 0.50)
 
+    val receivingSamples by bluetoothManager.receivingSamples.collectAsStateWithLifecycle()
     val connectionState by bluetoothManager.connectionState.collectAsStateWithLifecycle()
     val connectedDeviceName by bluetoothManager.connectedDeviceName.collectAsStateWithLifecycle()
     val discoveredDevices by bluetoothManager.discoveredDevices.collectAsStateWithLifecycle()
@@ -152,7 +153,7 @@ fun SettingsScreen(
                     DataSourceCard(
                         title = "Scale Connection",
                         icon = Icons.Default.FitnessCenter,
-                        activeSource = if (connectionState == ConnectionState.Connected) connectedDeviceName ?: "Bluetooth Scale" else "[No Device]",
+                        activeSource = if (connectionState == ConnectionState.Connected) (connectedDeviceName ?: "Bluetooth Scale") + if(receivingSamples) " · Receiving readings" else " · Waiting for readings" else connectionState.displayText,
                         statusColor = if (connectionState == ConnectionState.Connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         onClick = {
                             val isBtOn = runCatching { btAdapter?.isEnabled == true }.getOrDefault(false)
@@ -420,6 +421,7 @@ fun SettingsScreen(
                 title = { Text("Select Tension Source", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
+                        Text(if(connectionState==ConnectionState.Connected) {if(receivingSamples) "Receiving scale readings" else "Connected · waiting for scale readings"} else connectionState.displayText, style=MaterialTheme.typography.bodyMedium)
                         if (connectionState == ConnectionState.Connected) {
                             TextButton(
                                 onClick = { bluetoothManager.disconnect(); showTensionSheet = false },

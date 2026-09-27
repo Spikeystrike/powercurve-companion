@@ -16,10 +16,10 @@ sealed class ConnectionState {
         get() = when (this) {
             is Initializing -> "Initializing..."
             is Disconnected -> "Disconnected"
-            is Scanning -> "Scanning..."
-            is Connecting -> "Connecting..."
+            is Scanning -> "Searching for scale…"
+            is Connecting -> "Connecting · waiting for readings…"
             is Connected -> "Connected"
-            is Reconnecting -> "Reconnecting..."
+            is Reconnecting -> "Waiting for scale readings…"
             is Error -> "Error: $message"
         }
 }

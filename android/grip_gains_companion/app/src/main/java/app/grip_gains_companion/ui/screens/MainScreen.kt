@@ -105,6 +105,7 @@ fun MainScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {}
 
+    val receivingSamples by bluetoothManager.receivingSamples.collectAsStateWithLifecycle()
     val connectionState by bluetoothManager.connectionState.collectAsState()
     val isConnected = connectionState == ConnectionState.Connected
     val isReconnecting = connectionState == ConnectionState.Reconnecting
@@ -372,7 +373,7 @@ fun MainScreen(
                                     },
                                     label = {
                                         Text(
-                                            text = if (isConnected) displayName else connectionState.displayText,
+                                            text = if (isConnected) displayName + if(receivingSamples) " · Receiving readings" else " · Waiting for readings" else connectionState.displayText,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1,
                                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -564,6 +565,7 @@ fun MainScreen(
                     title = { Text("Select Tension Source", fontWeight = FontWeight.Bold) },
                     text = {
                         Column {
+                        Text(if(connectionState==ConnectionState.Connected) {if(receivingSamples) "Receiving scale readings" else "Connected · waiting for scale readings"} else connectionState.displayText, style=MaterialTheme.typography.bodyMedium)
                             if (connectionState == ConnectionState.Connected) {
                                 TextButton(
                                     onClick = { bluetoothManager.disconnect(); showTensionSheet = false },

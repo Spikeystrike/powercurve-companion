@@ -41,6 +41,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     val timeSpan=maxTime-minTime
     val minWeight=minPounds*factor;val maxWeight=maxPounds*factor;val weightSpan=maxWeight-minWeight
     val currentSelect by rememberUpdatedState(select)
+    var tapMessage by remember(curve) {mutableStateOf("")}
     val inspected=remember(curve,lbs,weight) {
         weight?.takeIf {it.isFinite() && it>0}?.let { value ->
             val pounds=value/factor
@@ -85,8 +86,9 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
                         if(size.width>0 && curve!=null && curveRange!=null) {
                             val pounds=minPounds+position.x.toDouble()/size.width*(maxPounds-minPounds)
                             val point=curve.inspectPlot((pounds-curveRange.minimum)/curveRange.span,curveRange)
-                            val seconds=point.seconds.roundToInt()
-                            currentSelect(OfflineCurve.Match(point.weightPounds*factor,seconds,OfflineCurve.zones[OfflineCurve.zone(seconds.toDouble())]))
+                            val match=curve.estimate(point.weightPounds*factor,lbs)
+                            if(match!=null) {tapMessage="";currentSelect(match)}
+                            else tapMessage="Not enough training data for a recommendation in this zone."
                         }
                     }
                 }.drawWithCache {
@@ -140,6 +142,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
             }
         }
     }
+    if(tapMessage.isNotEmpty()) Text(tapMessage,color=MaterialTheme.colorScheme.error)
     Text("${points.size} recent sets · older sets fade by order · outlined points: latest per time zone",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-history-count"))
     Text(inspected?.let {String.format(Locale.US,"Curve point: %.2f %s · %.1f s",it.weightPounds*factor,unit,it.seconds)}
         ?: if(curve!=null) "Tap the curve to set target weight and hold time." else "Saved sets are available without a fitted curve.",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-curve-readout"))

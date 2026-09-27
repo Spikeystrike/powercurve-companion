@@ -52,6 +52,9 @@ class OfflineSyncTest {
         assertEquals(70.0,training.history("prime","left").single().hold,0.0)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(31));sync.tick(true)
         assertEquals(3,page.reloads)
+        sync.requestRefresh();sync.tick(true)
+        assertEquals(4,page.reloads)
+        sync.tick(true);assertEquals(4,page.reloads)
         sync.close()
     }
 }

@@ -1,5 +1,15 @@
 # Validation
 
+## 0.1.16
+
+Local validation on 2026-09-27:
+
+- Optimized release APK built (versionCode 18 / versionName 0.1.16). 50 JVM/Robolectric tests and 9 Android emulator tests passed on the debug test build.
+- New queue tests verify edited values and deletions persist, invalid durations/weights are rejected, management pauses new uploads, and upload-started rows cannot be modified even after restart. Android tests exercise editing and confirmed deletion through the dialog.
+- Fresh unchanged history updates the visible check time. Manual refresh restarts the background page without interrupting an in-flight import and times out with a retry message.
+- Bluetooth sample tests check receiving status and expiry after silence. Unsupported curve taps are tested to preserve the previous timer weight and display an explanation.
+- Release startup and update installation are smoke-tested separately. Physical BLE, authenticated production imports and 90/120-Hz performance remain unverified.
+
 ## 0.1.15
 
 Local validation on 2026-09-27:

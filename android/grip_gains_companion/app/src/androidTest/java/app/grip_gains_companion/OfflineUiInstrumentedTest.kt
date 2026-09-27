@@ -167,4 +167,30 @@ class OfflineUiInstrumentedTest {
             ui.onNodeWithText(hand).performScrollTo().performClick();cleared();enter()
         }
     }
+
+    @Test fun pendingSetCanBeEditedAndDeletedFromTheDialog() {
+        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0);training.endRep()}
+        ui.onNodeWithText("Review pending sets").performClick()
+        ui.onNodeWithText("Edit or delete").performClick()
+        ui.onNodeWithText("Set weight (kg)").performTextReplacement("22")
+        ui.onNodeWithText("Rep durations (seconds, comma-separated)").performTextReplacement("30, 40")
+        ui.onNodeWithText("Save changes").performClick()
+        assertEquals(22.0,training.queue().single().getDouble("weightKg"),0.0)
+        ui.onNodeWithText("Edit or delete").performClick()
+        ui.onNodeWithText("Delete set").performClick()
+        ui.onNodeWithText("Delete",substring=false).performClick()
+        assertEquals(0,training.pending)
+        ui.onNodeWithText("Done").performClick()
+        assertFalse(training.managingQueue)
+    }
+    @Test fun curveTapWithoutZoneEvidenceDoesNotChangeTimerTargets() {
+        ui.runOnUiThread {
+            training.accountSeen("tap-test","Test")
+            training.cacheCurves("tap-test",JSONObject("""{"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[]}]}"""))
+        }
+        ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
+        ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
+        ui.onNodeWithText("Not enough training data for a recommendation in this zone.").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("20")
+    }
 }

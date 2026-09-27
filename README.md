@@ -89,3 +89,11 @@ MIT license: [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES
 Based on [bdrmakes/grip-gains-isotonic-companion](https://github.com/bdrmakes/grip-gains-isotonic-companion) and [jakemcc/grip_gains_companion](https://github.com/jakemcc/grip_gains_companion), with timer integration and force-drop detection adapted for Powercurve.
 
 During touch interactions the app requests the highest display refresh rate available at the current resolution, then restores the system preference two seconds after release or when leaving the app. Android, power-saving settings and display hardware determine the actual rate.
+
+## Reviewing offline data
+
+Use **Review pending sets** in the waiting-to-sync banner to correct gripper, hand, weight (kg) and completed rep durations, or delete a set after confirmation. Uploads pause while the list is open. Sets whose upload has already started are locked locally because the server may already have received them; wait for confirmation and edit or delete those sets online.
+
+The local timer shows when history was checked. **Update now** requests a fresh online snapshot without interrupting an active import; connection or sign-in failures show a retry message. Curve taps require the same supporting training data as other recommendations and leave timer targets unchanged when evidence is insufficient.
+
+Bluetooth status distinguishes searching, waiting for readings and receiving readings. The receiving indicator expires after three seconds without samples; it does not imply a new measurement or change connection recovery.

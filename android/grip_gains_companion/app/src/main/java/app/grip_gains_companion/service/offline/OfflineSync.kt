@@ -15,6 +15,8 @@ import org.json.JSONTokener
 class OfflineSync(private val context: Context, private val training: OfflineTraining, private val createView: (Context) -> WebView = { WebView(it) }) {
     private var view: WebView? = null
     private var polling = false
+    private var refreshRequested = false
+    fun requestRefresh() { refreshRequested=true }
     private var curveVersion = ""
     private var inFlight: String? = null
     private var started = 0L
@@ -41,6 +43,9 @@ class OfflineSync(private val context: Context, private val training: OfflineTra
                 loadUrl(AppConstants.POWERCURVE_ORIGIN + "/sessions")
             }
             lastReload=now
+        }
+        if(refreshRequested && inFlight==null) {
+            refreshRequested=false;curveVersion="";view?.reload();lastReload=now
         }
         if (inFlight!=null && now-started>90000) {inFlight=null;retryAt=now+30000;view?.reload();lastReload=now;training.status("Sync interrupted. Saved sets will be checked before retrying.")}
         if (polling) return
@@ -70,6 +75,7 @@ class OfflineSync(private val context: Context, private val training: OfflineTra
             if(training.pending==0) return@evaluateJavascript
             val next=training.queue().firstOrNull {it.optString("owner")==account}
             if(next==null){training.status(if(training.needsAccount) "Choose the account for your saved sets." else "Sign in to the account used for these offline sets.");return@evaluateJavascript}
+            if(!training.markUploading(next.getString("id"))) return@evaluateJavascript
             inFlight=next.getString("id");started=now
             training.status("Syncing ${training.pending} saved set(s)…")
             view?.evaluateJavascript("window.PowercurveOfflineImport.submit(${next});",null)

@@ -40,6 +40,32 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     private var cachedCurveData: JSONObject? = null
     private val curveModels = mutableMapOf<String, OfflineCurve>()
     private val sync = OfflineSync(context, this)
+    var managingQueue by observed(false); private set
+    var historyCheckedAt by observed(0L); private set
+    var refreshMessage by observed(""); private set
+    var refreshing by observed(false); private set
+    private var refreshStarted = 0L
+    fun manageQueue(open: Boolean) { managingQueue=open }
+    fun canEditPending(id: String): Boolean = queue().any {it.optString("id")==id && !it.optBoolean("uploadStarted")}
+    fun markUploading(id: String): Boolean {
+        if(managingQueue) return false
+        return save {state -> val rows=state.optJSONArray("queue") ?: JSONArray(); for(i in 0 until rows.length()) if(rows.getJSONObject(i).optString("id")==id) rows.getJSONObject(i).put("uploadStarted",true)}
+    }
+    fun updatePending(id: String, gripper: String, side: String, kg: Double, durations: List<Int>): Boolean {
+        if(!canEditPending(id) || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !kg.isFinite() || kg<=0 || durations.isEmpty() || durations.size>100 || durations.any {it !in 1..3600}) return false
+        return save {state -> val rows=state.getJSONArray("queue");for(i in 0 until rows.length()) {
+            val row=rows.getJSONObject(i)
+            if(row.optString("id")==id) row.put("gripper",gripper).put("side",side).put("weightKg",kg).put("reps",JSONArray(durations)).put("plannedReps",durations.size)
+        }}
+    }
+    fun deletePending(id: String): Boolean {
+        if(!canEditPending(id)) return false
+        return save {state -> val rows=state.getJSONArray("queue"); val keep=JSONArray();for(i in 0 until rows.length()) if(rows.getJSONObject(i).optString("id")!=id) keep.put(rows.getJSONObject(i));state.put("queue",keep)}
+    }
+    fun refreshHistory() {
+        if(!online) {refreshMessage="Connect to update history.";return}
+        refreshing=true;refreshStarted=System.currentTimeMillis();refreshMessage="Updating history…";sync.requestRefresh()
+    }
     val state: JSONObject get() = store?.snapshot() ?: JSONObject()
     val pending: Int get() = store?.queueSize ?: 0
     val synced: Int get() = store?.syncedCount ?: 0
@@ -67,6 +93,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
                 if (pageFailed && !inProgress && store?.has("webActive") == true) {
                     active=state.getJSONObject("webActive");phase="paused";open=true
                 }
+                if(refreshing && System.currentTimeMillis()-refreshStarted>60000) {refreshing=false;refreshMessage="Update unavailable. Check your connection and sign-in, then retry."}
                 tick(now)
                 if(lastTimerVisible != showTimer) { lastTimerVisible=showTimer; _revision.value++ }
                 delay(200)
@@ -147,6 +174,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     private fun refreshCurveMemory() {
         val snapshot=state
         cachedCurveData=snapshot.optJSONObject("curvesByOwner")?.optJSONObject(snapshot.optString("lastAccount"))
+        historyCheckedAt=cachedCurveData?.optLong("sessionsFetchedAt") ?: 0L
         curveModels.clear()
         val sides=cachedCurveData?.optJSONArray("sides") ?: return
         for(i in 0 until sides.length()) {
@@ -169,6 +197,8 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     fun cacheCurves(owner: String, data: JSONObject) {
         if(owner!=account || !data.has("sides")) return
         val fetchedAt=data.optLong("sessionsFetchedAt")
+        historyCheckedAt=maxOf(historyCheckedAt,fetchedAt)
+        if(refreshing && fetchedAt>=refreshStarted) {refreshing=false;refreshMessage="History is up to date."}
         val local=state.optJSONArray("localHistory") ?: JSONArray()
         val retained=JSONArray()
         for(i in 0 until local.length()) {
