@@ -1,5 +1,18 @@
 # Validation
 
+## 0.1.5
+
+Local validation on 2026-09-27:
+
+- Debug APK built with JDK 17 and SDK 36 (versionCode 7 / versionName 0.1.5).
+- 26 JVM/Robolectric tests passed. New coverage includes curve inversion, all five zone matches in kg/lb, Prime weight steps, missing evidence, forecast bounds, persisted account isolation and timer target duration.
+- 19 JavaScript tests passed, including authenticated curve-cache reads and rejection of stale curves or mismatched session counts.
+- Android 13 emulator: all 4 instrumented tests passed. The curve UI test selects Strength, verifies 25 kg / 101 s / 5 reps for a synthetic fixture, and compares background pixels before and after resizing. Existing queue/storage tests remain green.
+- Full app cold-started without Wi-Fi/mobile data. The Bluetooth panel was dragged down; the timer retained its background. The cached curve rendering was visually inspected with isolated test data.
+- Production authenticated curve retrieval/import and physical BLE measurements remain unverified. Synthetic test data is isolated and never uploaded.
+- Existing project-wide lint limitations listed below remain; lint was not rerun for this change.
+
+
 ## 0.1.4
 
 Local validation on 2026-09-26:

@@ -78,12 +78,12 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         val destination = store ?: return false
         destination.update(change); error=""; _revision.value++; true
     } catch (_: Exception) { error = "Could not save offline data. Free storage and try again; keep this set open."; false } }
-    fun start(gripper: String, side: String, weightKg: Double, reps: Int, rest: Int, countdown: Int) {
+    fun start(gripper: String, side: String, weightKg: Double, reps: Int, rest: Int, countdown: Int, targetDuration: Int? = null) {
         if (inProgress || !available || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !weightKg.isFinite() || weightKg <= 0 || reps !in 1..100 || rest !in 0..600 || countdown !in 0..60) return
         if(state.has("webActive")) { active=state.getJSONObject("webActive");phase="paused";open=true;publish();return }
         val record = JSONObject().put("id",UUID.randomUUID().toString()).put("owner",state.optString("lastAccount"))
             .put("date_time",Instant.ofEpochMilli(System.currentTimeMillis()).toString()).put("gripper",gripper).put("side",side).put("weightKg",weightKg)
-            .put("plannedReps",reps).put("rest",rest).put("countdown",countdown).put("reps",JSONArray())
+            .put("targetDuration",targetDuration).put("plannedReps",reps).put("rest",rest).put("countdown",countdown).put("reps",JSONArray())
         if (!save { it.put("active",record).put("defaults",record) }) return
         active=record; open=true; phase=if(countdown>0) "countdown" else "rep"; phaseStart=SystemClock.elapsedRealtime()
         bridge.offlineEndRep = ::endRep
@@ -100,7 +100,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         val record=active ?: return
         bridge.offlineEndRep=::endRep
         bridge.onOfflineSnapshot(JSONObject().put("phase",if(phase=="paused") "setup" else phase).put("active",phase=="rep")
-            .put("repKey",record.getString("id")+":"+record.getJSONArray("reps").length()).put("seconds",seconds)
+            .put("targetDuration",record.optInt("targetDuration")).put("repKey",record.getString("id")+":"+record.getJSONArray("reps").length()).put("seconds",seconds)
             .put("weight","${record.getDouble("weightKg")} kg").put("gripper",record.getString("gripper"))
             .put("side",record.getString("side")).put("url","offline://timer").toString())
     }
@@ -128,6 +128,16 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     fun accountSeen(id: String?, name: String) {
         account=id;accountName=name
         if(id!=null && state.optString("lastAccount")!=id) save {it.put("lastAccount",id)}
+    }
+    val curveCache: JSONObject? get() = state.optJSONObject("curvesByOwner")?.optJSONObject(state.optString("lastAccount"))
+    fun curve(gripper: String, side: String): OfflineCurve? {
+        val sides=curveCache?.optJSONArray("sides") ?: return null
+        return (0 until sides.length()).map(sides::getJSONObject).firstOrNull { it.optString("gripper")==gripper && it.optString("side")==side }?.let { runCatching { OfflineCurve(it) }.getOrNull() }
+    }
+    fun cacheCurves(owner: String, data: JSONObject) {
+        if(owner!=account || !data.has("sides")) return
+        if(curveCache?.toString()==data.toString()) return
+        save { state -> val caches=state.optJSONObject("curvesByOwner") ?: JSONObject(); caches.put(owner,data);state.put("curvesByOwner",caches) }
     }
     fun assignUnowned() { val id=account ?: return;save {state -> val q=state.optJSONArray("queue")?:JSONArray();for(i in 0 until q.length())if(q.getJSONObject(i).optString("owner").isEmpty())q.getJSONObject(i).put("owner",id)} }
     fun acknowledge(id: String) {try{store?.acknowledge(id);syncMessage="";error="";_revision.value++}catch(_:Exception){error="Import succeeded, but local confirmation could not be saved. The next attempt will check for this set first."}}

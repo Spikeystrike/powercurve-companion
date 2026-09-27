@@ -125,4 +125,19 @@ class OfflineTrainingTest {
         b.onSnapshot("""{"phase":"complete","weight":"20 kg","gripper":"Crusher","side":"Left","completedReps":[5,3]}""")
         assertEquals(0,t.pending);assertEquals(0,t.synced);assertFalse(t.showTimer)
     }
+    @Test fun curveCacheSurvivesRestartAndIsIsolatedByAccount() {
+        val (t,b)=training()
+        val data=JSONObject("""{"savedAt":123,"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0}}]}""")
+        t.accountSeen("7","First");t.cacheCurves("7",data)
+        assertNotNull(t.curve("crusher","left"))
+        assertNotNull(training().first.curve("crusher","left"))
+        t.accountSeen("8","Second")
+        assertNull(t.curve("crusher","left"))
+        t.cacheCurves("7",data)
+        assertNull(t.curve("crusher","left"))
+        t.accountSeen("7","First")
+        assertNotNull(t.curve("crusher","left"))
+        t.start("crusher","left",25.0,5,10,0,101)
+        assertEquals(101,t.active!!.getInt("targetDuration"))
+    }
 }

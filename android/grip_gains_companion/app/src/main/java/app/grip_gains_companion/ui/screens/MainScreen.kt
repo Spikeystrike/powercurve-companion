@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -282,7 +283,7 @@ fun MainScreen(
                 TimerWebView(
                     bridge = webViewBridge,
                     cachedWebView = cachedWebView,
-                    modifier = if (offlineTimer) Modifier.height(0.dp) else Modifier.weight(1f).fillMaxWidth()
+                    modifier = if (offlineTimer) Modifier.height(0.dp).clipToBounds() else Modifier.weight(1f).fillMaxWidth()
                 )
                 if (offlineTimer) app.grip_gains_companion.ui.components.OfflineTimer(offline, useLbs, Modifier.weight(1f).fillMaxWidth())
             }

@@ -1,6 +1,9 @@
 package app.grip_gains_companion.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import app.grip_gains_companion.service.offline.OfflineCurve
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -51,13 +54,18 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     }
     val kg=weight.replace(',','.').toDoubleOrNull()?.let {if(useLbs)it*0.45359237 else it}
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-    Column(modifier.verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    Column(modifier.background(Color(0xFF1A2231)).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(if(training.online) "Local set timer" else "Offline set timer",style=MaterialTheme.typography.titleLarge)
         val active=training.active
         if(active==null) {
             Text("Sets are saved on this phone and imported automatically when connected.",style=MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item},label={Text(item.replaceFirstChar(Char::uppercase))})} }
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item},label={Text(item.replaceFirstChar(Char::uppercase))})}}
+            val curve=training.curve(gripper,side)
+            OfflineCurvePanel(curve,training.curveCache?.optLong("savedAt"),useLbs,weight.replace(',','.').toDoubleOrNull()) { match ->
+                weight=String.format(java.util.Locale.US,"%.2f",match.weight)
+                reps=match.zone.reps.toString()
+            }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(weight,{weight=it},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(reps,{reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
@@ -66,12 +74,13 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
                 OutlinedTextField(rest,{rest=it},label={Text("Rest (0–600 s)")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(countdown,{countdown=it},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
             }
-            Button(onClick={training.start(gripper,side,kg!!,reps.toInt(),rest.toInt(),countdown.toInt())},enabled=training.available && kg!=null && kg.isFinite() && kg>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
+            Button(onClick={training.start(gripper,side,kg!!,reps.toInt(),rest.toInt(),countdown.toInt(),curve?.estimate(weight.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs)?.seconds)},enabled=training.available && kg!=null && kg.isFinite() && kg>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
             if(training.online) TextButton(onClick=training::useWebsite){Text("Return to Powercurve")}
         } else {
             val done=active.getJSONArray("reps").length()
             Text("${active.getString("gripper")} · ${active.getString("side")} · " + String.format(java.util.Locale.US,"%.1f %s",if(useLbs) active.getDouble("weightKg")/0.45359237 else active.getDouble("weightKg"),if(useLbs) "lb" else "kg"))
             Text("${training.phase.replaceFirstChar(Char::uppercase)} · ${training.seconds}s",style=MaterialTheme.typography.headlineLarge)
+            if(active.optInt("targetDuration")>0) Text("Estimated hold: ${active.getInt("targetDuration")} s")
             Text("$done / ${active.getInt("plannedReps")} reps completed")
             if(training.phase=="paused") {
                 Text("Interrupted set recovered. Completed reps are safe; the interrupted rep was not counted.")

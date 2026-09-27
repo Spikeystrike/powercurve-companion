@@ -10,6 +10,28 @@
     if (!data.user || data.user.id == null || data.support_session) throw new Error('Sign in to your own Powercurve account to sync.');
     return data.user;
   };
+  let curveChecked = 0, curveLoading = false, curves = null;
+  async function refreshCurves(user) {
+    if (curveLoading || Date.now()-curveChecked < 30000) return;
+    curveLoading=true; curveChecked=Date.now();
+    try {
+      const owner=String(user.id);
+      const options={credentials:'include',cache:'no-store',headers:{Accept:'application/json','X-Powercurve-Expected-User-Id':owner}};
+      const [graphResponse, sessionResponse]=await Promise.all([fetch('/api/curvefit/graphs',options),fetch('/api/curvefit/sessions',options)]);
+      if(!graphResponse.ok || !sessionResponse.ok) return;
+      const graph=await graphResponse.json(), rows=await sessionResponse.json();
+      if(!Array.isArray(graph.sides) || !Array.isArray(rows.sessions)) return;
+      const sides=graph.sides.filter(side => {
+        const count=rows.sessions.filter(s=>s.gripper===side.gripper && s.side===side.side && !s.excluded_from_metrics && !s.hidden_from_graphs).length;
+        return count>=5 && count===side.session_count && ['a','b','x0','c','d'].every(k=>Number.isFinite(side.params?.[k]))
+          && !(graph.stale_sides || []).some(s=>s.gripper===side.gripper && s.side===side.side);
+      });
+      const current=await auth();
+      if(String(current.id)!==owner) return;
+      curves={owner,data:{sides,savedAt:Date.now()}};
+    } catch (_) { /* Keep the last verified local curve when offline. */ }
+    finally { curveLoading=false; }
+  }
   const sameSession = (s, r) => new Date(s.date_time).getTime() === new Date(r.date_time).getTime()
     && s.gripper === r.gripper && s.side === r.side && Math.abs(Number(s.weight) - r.weightKg / 0.45359237) < 0.011
     && JSON.stringify(s.rep_durations) === JSON.stringify(r.reps);
@@ -63,9 +85,9 @@
   function poll() {
     if(!running && Date.now()-checked>15000) {
       checked=Date.now();
-      auth().then(user=>{result.account=String(user.id);result.name=user.name||'';}).catch(()=>{result.account=null;result.name='';});
+      auth().then(user=>{result.account=String(user.id);result.name=user.name||'';refreshCurves(user);}).catch(()=>{result.account=null;result.name='';});
     }
-    return result;
+    return {...result, curves: curves?.owner===result.account ? curves : null};
   }
   window.PowercurveOfflineImport={poll,submit};
 })();

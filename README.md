@@ -28,9 +28,12 @@ A valid target is required. Changing the target or reconnecting the sensor requi
 
 Without internet, use the **Offline set timer**. Bluetooth measurements and the live force graph remain available with a connected sensor. Enable **Show Force Graph** to keep the graph panel expanded.
 
-1. Choose gripper, side, target weight, reps, rest and countdown.
-2. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set.
-3. Start another set whenever you are ready.
+1. Choose gripper and side. Your personal **Force curve** is saved while signed in online and remains available offline. Select **Power**, **Power Strength**, **Strength**, **Strength Endurance** or **Endurance** to fill matching weight, estimated hold time and reps. You can also enter a weight or match a hold time.
+2. Set reps, rest and countdown.
+3. End reps manually or through force-drop detection. Completing all planned reps saves the set on your phone. During rest, **Save set now** saves a shorter set.
+4. Start another set whenever you are ready.
+
+Curves are stored per account, gripper and hand. Connect once to cache a fitted curve; unavailable zones need more training data. The saved timestamp is shown, and pending sets affect the curve after synchronization and online recalculation.
 
 Saved sets and completed reps survive app restarts. An interrupted set can be resumed; an unfinished rep is not counted.
 
