@@ -56,6 +56,13 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
+    private val interactionFrameRate by lazy { app.grip_gains_companion.ui.InteractionFrameRate(window) }
+
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        interactionFrameRate.onTouch(event.actionMasked)
+        return super.dispatchTouchEvent(event)
+    }
+
 
     private lateinit var bluetoothManager: BluetoothManager
     private lateinit var progressorHandler: ProgressorHandler
@@ -698,6 +705,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        interactionFrameRate.reset()
         trainingVisible = false
         forceDropDetector.reset()
         if (::webViewBridge.isInitialized) webViewBridge.invalidate("Auto-end paused")

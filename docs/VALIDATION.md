@@ -1,5 +1,15 @@
 # Validation
 
+## 0.1.15
+
+Local validation on 2026-09-27:
+
+- Optimized release APK built with R8 and resource shrinking (versionCode 17 / versionName 0.1.15), with no debuggable flag. It retains the previous local signing certificate for in-place updates.
+- All 48 JVM/Robolectric tests and 7 Android emulator tests passed on the debug test build. New tests check high-rate requests through long gestures, successive gestures, delayed restoration, pause reset and 60-Hz fallback.
+- Installed the actual optimized release APK over the debug build without uninstalling. Release startup initially exposed a stripped Room constructor; a targeted keep rule fixes it. The corrected release starts successfully with no AndroidRuntime crash.
+- High refresh rates are requested during touch interaction at the current screen resolution and released two seconds after the gesture or on pause. Actual 90/120-Hz rendering and frame-time improvement require a compatible physical device and remain unverified. Authenticated production and physical BLE checks remain unverified.
+- Release lintVital checks pass; existing full-project lint limitations remain.
+
 ## 0.1.14
 
 Local validation on 2026-09-27:

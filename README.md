@@ -69,10 +69,10 @@ Use **JDK 17**, **Android SDK 36** and **Build Tools 36.0.0**.
 
 ```sh
 cd android/grip_gains_companion
-./gradlew :app:assembleDebug :app:testDebugUnitTest
+./gradlew :app:assembleRelease :app:testDebugUnitTest
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. On Windows, use `gradlew.bat`. To retain app data when updating, install over the existing app using the same signing key.
+APK: `app/build/outputs/apk/release/app-release.apk`. Release builds enable R8 code optimization and resource shrinking and are not debuggable. For compatibility with existing private installations, they use the same local signing certificate as previous APKs; keep that keystore when rebuilding. On Windows, use `gradlew.bat`. To retain app data when updating, install over the existing app using the same signing key.
 
 Additional detector, decoder and web integration tests require JDK 17 and Node.js. Run from the repository root:
 
@@ -87,3 +87,5 @@ See [validation results](docs/VALIDATION.md) and the [device test plan](docs/DEV
 MIT license: [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Based on [bdrmakes/grip-gains-isotonic-companion](https://github.com/bdrmakes/grip-gains-isotonic-companion) and [jakemcc/grip_gains_companion](https://github.com/jakemcc/grip_gains_companion), with timer integration and force-drop detection adapted for Powercurve.
+
+During touch interactions the app requests the highest display refresh rate available at the current resolution, then restores the system preference two seconds after release or when leaving the app. Android, power-saving settings and display hardware determine the actual rate.

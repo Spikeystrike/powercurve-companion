@@ -13,15 +13,18 @@ android {
         applicationId = "com.tantaluspath.powercurve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 16
-        versionName = "0.1.14"
+        versionCode = 17
+        versionName = "0.1.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            // Retain the existing private-install certificate for in-place updates.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
