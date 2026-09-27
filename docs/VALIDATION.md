@@ -1,5 +1,16 @@
 # Validation
 
+## 0.1.7
+
+Local validation on 2026-09-27:
+
+- Debug APK and Android test APK built successfully (versionCode 9 / versionName 0.1.7).
+- 30 JVM/Robolectric tests passed, including the lower weight-axis bound and tap-to-curve mapping at both endpoints and the midpoint.
+- All 4 Android emulator instrumented tests passed. UI checks cover Endurance-first selection, tapping the graph to display weight/time, and unchanged timer selection and storage behavior.
+- Visually inspected the tighter weight axis, reversed zone order, and highlighted inspected point with weight/time readout. Tapping inspects the curve without changing timer settings.
+- Physical-device and production-account checks remain unverified; existing lint limitations remain.
+
+
 ## 0.1.6
 
 Local validation on 2026-09-27:

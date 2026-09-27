@@ -19,6 +19,18 @@ class OfflineCurve(private val data: JSONObject) {
     private val c=params.getDouble("c")
     private val d=params.getDouble("d")
     data class PlotPoint(val weightPounds: Double, val seconds: Double)
+    data class PlotRange(val minimum: Double, val maximum: Double, val curveMinimum: Double) {
+        val span: Double get() = maximum-minimum
+    }
+    fun plotRange(): PlotRange {
+        val low=pounds(300.0)
+        val high=pounds(30.0).coerceAtLeast(low+0.001)
+        return PlotRange((low*0.95).coerceAtLeast(0.0),high,low)
+    }
+    fun inspectPlot(fraction: Double, range: PlotRange = plotRange()): PlotPoint {
+        val weight=(range.minimum+fraction.coerceIn(0.0,1.0)*range.span).coerceIn(range.curveMinimum,range.maximum)
+        return PlotPoint(weight,hold(weight).coerceIn(30.0,300.0))
+    }
     fun plotSegments(): List<List<PlotPoint>> {
         val bounds=listOf(30.0,48.0,82.0,129.0,180.0,300.0)
         return (0..4).map { index ->

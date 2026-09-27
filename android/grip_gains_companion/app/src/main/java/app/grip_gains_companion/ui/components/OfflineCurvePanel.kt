@@ -1,6 +1,9 @@
 package app.grip_gains_companion.ui.components
 
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -27,10 +30,14 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     }
     val unit=if(lbs) "lb" else "kg"
     val factor=if(lbs) 1.0 else 0.45359237
-    val maxWeight=remember(curve,lbs) {(curve.pounds(30.0)*factor).coerceAtLeast(0.001)}
+    val range=remember(curve) {curve.plotRange()}
+    val minWeight=range.minimum*factor
+    val maxWeight=range.maximum*factor
+    val weightSpan=maxWeight-minWeight
+    var inspected by remember(curve,lbs) {mutableStateOf<OfflineCurve.PlotPoint?>(null)}
     // Sample once per curve/unit; no curve solving or JSON access during drawing/scrolling.
     val segments=remember(curve,lbs) { curve.plotSegments().map { segment -> segment.map { point ->
-        Offset((point.weightPounds*factor/maxWeight).toFloat(),((300-point.seconds)/270).toFloat())
+        Offset(((point.weightPounds*factor-minWeight)/weightSpan).toFloat(),((300-point.seconds)/270).toFloat())
     } } }
     val colors=remember {listOf(Color(0xFFD43B3D),Color(0xFFC44786),Color(0xFF5599FF),Color(0xFF65C936),Color(0xFFD4B344))}
     val estimate=remember(curve,lbs,weight) { weight?.takeIf {it.isFinite() && it>0}?.let {curve.estimate(it,lbs)} }
@@ -43,7 +50,12 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
             Text("30 s",style=MaterialTheme.typography.labelSmall)
         }
         Column(Modifier.weight(1f).padding(start=8.dp)) {
-            Box(Modifier.fillMaxWidth().height(140.dp).drawWithCache {
+            Box(Modifier.fillMaxWidth().height(140.dp).testTag("offline-curve-plot")
+                .pointerInput(curve,lbs,range) {
+                    detectTapGestures { position ->
+                        if(size.width>0) inspected=curve.inspectPlot(position.x.toDouble()/size.width,range)
+                    }
+                }.drawWithCache {
                 val paths=segments.map { segment -> Path().apply {
                     segment.forEachIndexed { index, point ->
                         val x=point.x.coerceIn(0f,1f)*size.width
@@ -59,20 +71,29 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
                         drawRect(colors[i].copy(alpha=0.12f),Offset(0f,top),androidx.compose.ui.geometry.Size(size.width,bottom-top))
                         drawPath(paths[i],colors[i],style=Stroke(2.dp.toPx()))
                     }
+                    inspected?.let { point ->
+                        val x=((point.weightPounds*factor-minWeight)/weightSpan*size.width).toFloat().coerceIn(0f,size.width)
+                        val y=((300-point.seconds)/270*size.height).toFloat().coerceIn(0f,size.height)
+                        drawLine(Color(0xFFFFC86B).copy(alpha=0.5f),Offset(x,0f),Offset(x,size.height),1.dp.toPx())
+                        drawCircle(Color(0xFFFFC86B),5.dp.toPx(),Offset(x,y))
+                    }
                     estimate?.let { match ->
-                        drawCircle(Color.White,4.dp.toPx(),Offset((match.weight/maxWeight*size.width).toFloat().coerceIn(0f,size.width),(300-match.seconds)/270f*size.height))
+                        drawCircle(Color.White,4.dp.toPx(),Offset(((match.weight-minWeight)/weightSpan*size.width).toFloat().coerceIn(0f,size.width),(300-match.seconds)/270f*size.height))
                     }
                 }
             })
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                Text("0 $unit",style=MaterialTheme.typography.labelSmall)
-                Text(String.format(Locale.US,"%.1f %s",maxWeight/2,unit),style=MaterialTheme.typography.labelSmall)
+                Text(String.format(Locale.US,"%.1f %s",minWeight,unit),style=MaterialTheme.typography.labelSmall)
+                Text(String.format(Locale.US,"%.1f %s",(minWeight+maxWeight)/2,unit),style=MaterialTheme.typography.labelSmall)
                 Text(String.format(Locale.US,"%.1f %s",maxWeight,unit),style=MaterialTheme.typography.labelSmall)
             }
         }
     }
+    Text(inspected?.let { String.format(Locale.US,"Curve point: %.2f %s · %.1f s",it.weightPounds*factor,unit,it.seconds) }
+        ?: "Tap the curve to inspect weight and hold time.",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-curve-readout"))
     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-        OfflineCurve.zones.forEachIndexed { index, zone ->
+        OfflineCurve.zones.indices.reversed().forEach { index ->
+            val zone=OfflineCurve.zones[index]
             val match=matches[index]
             FilterChip(selected=estimate?.zone==zone,enabled=match!=null,onClick={match?.let(select)},label={Text(zone.label)})
         }

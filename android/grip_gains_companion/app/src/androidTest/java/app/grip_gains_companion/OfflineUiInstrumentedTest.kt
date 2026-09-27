@@ -69,6 +69,10 @@ class OfflineUiInstrumentedTest {
             training.cacheCurves("curve-test",JSONObject("""{"savedAt":1790500000000,"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[{"hold":40},{"hold":60},{"hold":100},{"hold":150},{"hold":230}],"zone_characteristic_times":{"power":40,"power_strength":60,"strength":100,"strength_endurance":150,"endurance":230}}]}"""))
         }
         ui.onNodeWithText("Hold time (s) vs weight (kg)").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Endurance",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
+        ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
+        ui.onNodeWithTag("offline-curve-readout").assertTextContains("Curve point:",substring=true)
+        ui.onNodeWithTag("offline-curve-readout").assertTextContains("kg",substring=true)
         ui.onNodeWithText("Strength",useUnmergedTree=true).performScrollTo().performClick()
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")

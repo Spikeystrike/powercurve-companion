@@ -61,4 +61,15 @@ class OfflineCurveTest {
         assertEquals(30.0,segments.first().last().seconds,0.000001)
         assertEquals(300.0,segments.last().first().seconds,0.000001)
     }
+    @Test fun plotRangeStartsJustBeforeCurveAndTapsStayOnCurve() {
+        val curve=OfflineCurve(data()); val range=curve.plotRange()
+        assertTrue(range.minimum>0)
+        assertTrue(range.minimum<range.curveMinimum)
+        assertEquals(range.curveMinimum*0.05,range.curveMinimum-range.minimum,0.000001)
+        val middle=curve.inspectPlot(0.5,range)
+        assertEquals((range.minimum+range.maximum)/2,middle.weightPounds,0.000001)
+        assertEquals(curve.hold(middle.weightPounds),middle.seconds,0.000001)
+        assertEquals(300.0,curve.inspectPlot(0.0,range).seconds,0.000001)
+        assertEquals(30.0,curve.inspectPlot(1.0,range).seconds,0.000001)
+    }
 }
