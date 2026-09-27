@@ -62,7 +62,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item},label={Text(item.replaceFirstChar(Char::uppercase))})} }
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item},label={Text(item.replaceFirstChar(Char::uppercase))})}}
             val curve=training.curve(gripper,side)
-            OfflineCurvePanel(curve,training.curveCache?.optLong("savedAt"),useLbs,weight.replace(',','.').toDoubleOrNull()) { match ->
+            OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull()) { match ->
                 weight=String.format(java.util.Locale.US,"%.2f",match.weight)
                 reps=match.zone.reps.toString()
             }

@@ -28,6 +28,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -78,8 +80,7 @@ fun MainScreen(
     onSetManualWeightTap: () -> Unit
 ) {
     val offline = webViewBridge.offline
-    val offlineRevision by offline.revision.collectAsState()
-    val offlineTimer = remember(offlineRevision) { offline.showTimer }
+    val offlineTimer by remember(offline) { offline.revision.map { offline.showTimer }.distinctUntilChanged() }.collectAsState(initial=offline.showTimer)
     val context = LocalContext.current
     val isToolbarVisible by webViewBridge.isToolbarVisible.collectAsState()
     val isLive by webViewBridge.buttonEnabled.collectAsState()
@@ -450,7 +451,7 @@ fun MainScreen(
 
                         val contentAlpha = ((sheetHeightPx.value - level1Px) / (level2Px - level1Px)).coerceIn(0f, 1f)
 
-                        if (showForceGraph) {
+                        if (showForceGraph && contentAlpha > 0f) {
                             Column(modifier = Modifier.alpha(contentAlpha)) {
                                 Box(
                                     modifier = Modifier
@@ -509,14 +510,14 @@ fun MainScreen(
                                 }
 
                                 val forceHistory by progressorHandler.forceHistory.collectAsState()
-                                val activeForces = remember(forceHistory) {
+                                val activeForces = remember(forceHistory, forceGraphWindow) {
                                     val now = System.currentTimeMillis()
                                     val cutoff = now - (forceGraphWindow * 1000L)
                                     forceHistory.filter { it.timestamp.time >= cutoff && it.force > 2.0 }.map { it.force }
                                 }
 
-                                val mean = if (activeForces.isNotEmpty()) StatisticsUtils.mean(activeForces) else 0.0
-                                val median = if (activeForces.isNotEmpty()) StatisticsUtils.median(activeForces) else 0.0
+                                val mean = remember(activeForces) { if (activeForces.isNotEmpty()) StatisticsUtils.mean(activeForces) else 0.0 }
+                                val median = remember(activeForces) { if (activeForces.isNotEmpty()) StatisticsUtils.median(activeForces) else 0.0 }
                                 val stdDev = if (activeForces.isNotEmpty()) StatisticsUtils.standardDeviation(activeForces) else 0.0
 
                                 val fmt = { value: Double ->

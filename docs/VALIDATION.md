@@ -1,5 +1,18 @@
 # Validation
 
+## 0.1.6
+
+Local validation on 2026-09-27:
+
+- Debug APK and Android test APK built successfully (versionCode 8 / versionName 0.1.6).
+- 29 JVM/Robolectric tests passed. Added coverage verifies increasing weight/decreasing hold-time plot coordinates, no UI invalidations for idle ticks, one visible timer update per second while retaining every heartbeat, and unchanged curve/model reuse without disk writes.
+- 20 JavaScript tests passed, including suppression of already received curve payloads.
+- All 4 Android 13 emulator instrumented tests passed. The weight-horizontal / hold-time-vertical chart was visually inspected, including zone selection and the weight/time match.
+- Full app offline smoke check: after startup settled and frame statistics were reset, a subsequent idle sample reported zero additional rendered frames. This is an idle-work check, not a frame-rate benchmark under physical BLE load.
+- Curve samples and draw paths are cached. The main screen no longer subscribes to every timer revision, unchanged curves are not repeatedly copied across the WebView bridge or persisted, and a collapsed live graph stops drawing and collecting display data. Sensor processing and the timer heartbeat remain active.
+- Performance on the user's phone with a real sensor and authenticated production import remains unverified. Existing project-wide lint limitations remain.
+
+
 ## 0.1.5
 
 Local validation on 2026-09-27:

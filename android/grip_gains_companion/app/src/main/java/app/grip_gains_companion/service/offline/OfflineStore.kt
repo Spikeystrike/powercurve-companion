@@ -12,6 +12,10 @@ import java.io.File
 class OfflineStore(context: Context) {
     private val file = File(context.filesDir, "offline-training.json")
     private var data = if (file.exists()) JSONObject(file.readText()) else JSONObject()
+    val queueSize: Int get() = data.optJSONArray("queue")?.length() ?: 0
+    val syncedCount: Int get() = data.optInt("synced")
+    val lastAccount: String get() = data.optString("lastAccount")
+    fun has(key: String): Boolean = data.has(key)
     fun snapshot(): JSONObject = JSONObject(data.toString())
     fun update(change: (JSONObject) -> Unit) {
         val next = snapshot()

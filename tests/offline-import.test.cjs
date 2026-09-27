@@ -33,3 +33,10 @@ test('curve cache verifies account and excludes stale or mismatched curves',asyn
  const stale=fixture({graph:{sides:[side],stale_sides:[{gripper:'crusher',side:'left'}]},curveRows:rows});stale.api.poll();await flush();assert.equal(stale.api.poll().curves.data.sides.length,0);
  const wrongCount=fixture({graph:{sides:[side]},curveRows:rows.slice(1)});wrongCount.api.poll();await flush();assert.equal(wrongCount.api.poll().curves.data.sides.length,0);
 });
+
+test('known curve version avoids resending the full curve payload',async()=>{
+ const f=fixture({graph:{sides:[]},curveRows:[]});f.api.poll();await flush();
+ const cache=f.api.poll().curves;assert.ok(cache);
+ assert.equal(f.api.poll(cache.owner+':'+cache.data.savedAt).curves,null);
+ assert.ok(f.api.poll('different-account:0').curves);
+});

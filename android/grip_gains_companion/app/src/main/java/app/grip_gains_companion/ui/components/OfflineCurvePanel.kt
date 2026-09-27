@@ -1,6 +1,6 @@
 package app.grip_gains_companion.ui.components
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -27,39 +27,53 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     }
     val unit=if(lbs) "lb" else "kg"
     val factor=if(lbs) 1.0 else 0.45359237
-    val maxWeight=(curve.pounds(30.0)*factor).coerceAtLeast(0.001)
-    val colors=listOf(Color(0xFFD43B3D),Color(0xFFC44786),Color(0xFF5599FF),Color(0xFF65C936),Color(0xFFD4B344))
-    Text("Weight ($unit) vs hold time (s)",style=MaterialTheme.typography.labelMedium)
+    val maxWeight=remember(curve,lbs) {(curve.pounds(30.0)*factor).coerceAtLeast(0.001)}
+    // Sample once per curve/unit; no curve solving or JSON access during drawing/scrolling.
+    val segments=remember(curve,lbs) { curve.plotSegments().map { segment -> segment.map { point ->
+        Offset((point.weightPounds*factor/maxWeight).toFloat(),((300-point.seconds)/270).toFloat())
+    } } }
+    val colors=remember {listOf(Color(0xFFD43B3D),Color(0xFFC44786),Color(0xFF5599FF),Color(0xFF65C936),Color(0xFFD4B344))}
+    val estimate=remember(curve,lbs,weight) { weight?.takeIf {it.isFinite() && it>0}?.let {curve.estimate(it,lbs)} }
+    val matches=remember(curve,lbs) { OfflineCurve.zones.indices.map {curve.match(it,lbs)} }
+    Text("Hold time (s) vs weight ($unit)",style=MaterialTheme.typography.labelMedium)
     Row {
         Column(Modifier.height(140.dp),verticalArrangement=Arrangement.SpaceBetween) {
-            Text(String.format(Locale.US,"%.1f",maxWeight),style=MaterialTheme.typography.labelSmall)
-            Text("0 $unit",style=MaterialTheme.typography.labelSmall)
+            Text("300 s",style=MaterialTheme.typography.labelSmall)
+            Text("165 s",style=MaterialTheme.typography.labelSmall)
+            Text("30 s",style=MaterialTheme.typography.labelSmall)
         }
-        Canvas(Modifier.weight(1f).height(140.dp).padding(start=8.dp)) {
-            val boundaries=listOf(30.0,48.0,82.0,129.0,180.0,300.0)
-            for(i in 0..4) {
-                val left=((boundaries[i]-30)/270*size.width).toFloat()
-                val right=((boundaries[i+1]-30)/270*size.width).toFloat()
-                drawRect(colors[i].copy(alpha=0.12f),Offset(left,0f),androidx.compose.ui.geometry.Size(right-left,size.height))
-                val path=Path()
-                for(n in 0..40) {
-                    val t=boundaries[i]+(boundaries[i+1]-boundaries[i])*n/40
-                    val x=((t-30)/270*size.width).toFloat()
-                    val y=(size.height*(1-curve.pounds(t)*factor/maxWeight)).toFloat().coerceIn(0f,size.height)
-                    if(n==0) path.moveTo(x,y) else path.lineTo(x,y)
+        Column(Modifier.weight(1f).padding(start=8.dp)) {
+            Box(Modifier.fillMaxWidth().height(140.dp).drawWithCache {
+                val paths=segments.map { segment -> Path().apply {
+                    segment.forEachIndexed { index, point ->
+                        val x=point.x.coerceIn(0f,1f)*size.width
+                        val y=point.y.coerceIn(0f,1f)*size.height
+                        if(index==0) moveTo(x,y) else lineTo(x,y)
+                    }
+                } }
+                val bounds=listOf(30f,48f,82f,129f,180f,300f)
+                onDrawBehind {
+                    for(i in 0..4) {
+                        val top=(300-bounds[i+1])/270*size.height
+                        val bottom=(300-bounds[i])/270*size.height
+                        drawRect(colors[i].copy(alpha=0.12f),Offset(0f,top),androidx.compose.ui.geometry.Size(size.width,bottom-top))
+                        drawPath(paths[i],colors[i],style=Stroke(2.dp.toPx()))
+                    }
+                    estimate?.let { match ->
+                        drawCircle(Color.White,4.dp.toPx(),Offset((match.weight/maxWeight*size.width).toFloat().coerceIn(0f,size.width),(300-match.seconds)/270f*size.height))
+                    }
                 }
-                drawPath(path,colors[i],style=Stroke(2.dp.toPx()))
-            }
-            weight?.takeIf {it.isFinite() && it>0}?.let { curve.estimate(it,lbs) }?.let { match ->
-                drawCircle(Color.White,4.dp.toPx(),Offset((match.seconds-30)/270f*size.width,(size.height*(1-match.weight/maxWeight)).toFloat().coerceIn(0f,size.height)))
+            })
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                Text("0 $unit",style=MaterialTheme.typography.labelSmall)
+                Text(String.format(Locale.US,"%.1f %s",maxWeight/2,unit),style=MaterialTheme.typography.labelSmall)
+                Text(String.format(Locale.US,"%.1f %s",maxWeight,unit),style=MaterialTheme.typography.labelSmall)
             }
         }
     }
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("30 s");Text("165 s");Text("300 s")}
-    val estimate=weight?.takeIf { it.isFinite() && it>0 }?.let {curve.estimate(it,lbs)}
     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
         OfflineCurve.zones.forEachIndexed { index, zone ->
-            val match=curve.match(index,lbs)
+            val match=matches[index]
             FilterChip(selected=estimate?.zone==zone,enabled=match!=null,onClick={match?.let(select)},label={Text(zone.label)})
         }
     }

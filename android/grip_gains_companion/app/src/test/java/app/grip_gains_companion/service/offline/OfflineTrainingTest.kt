@@ -140,4 +140,31 @@ class OfflineTrainingTest {
         t.start("crusher","left",25.0,5,10,0,101)
         assertEquals(101,t.active!!.getInt("targetDuration"))
     }
+    @Test fun idleTicksDoNotInvalidateUiAndActiveTicksKeepHeartbeatWithoutRedundantUiUpdates() {
+        val (t,b)=training()
+        val idle=t.revision.value
+        repeat(50) { t.tick(android.os.SystemClock.elapsedRealtime()) }
+        assertEquals(idle,t.revision.value)
+        t.start("crusher","left",20.0,5,10,0)
+        val initial=t.revision.value
+        repeat(50) {
+            ShadowSystemClock.advanceBy(Duration.ofMillis(100))
+            t.tick(android.os.SystemClock.elapsedRealtime())
+            assertTrue(b.isFreshActive)
+        }
+        assertEquals(5,t.seconds)
+        assertEquals(5,t.revision.value-initial)
+    }
+    @Test fun unchangedCurveDoesNotWriteOrRecreateModel() {
+        val (t,_)=training()
+        t.accountSeen("7","Test")
+        val cache=JSONObject("""{"savedAt":123,"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0}}]}""")
+        t.cacheCurves("7",cache)
+        val curve=t.curve("crusher","left")
+        val revision=t.revision.value
+        t.cacheCurves("7",JSONObject(cache.toString()).put("savedAt",456))
+        assertEquals(revision,t.revision.value)
+        assertSame(curve,t.curve("crusher","left"))
+        assertEquals(123L,t.curveSavedAt)
+    }
 }

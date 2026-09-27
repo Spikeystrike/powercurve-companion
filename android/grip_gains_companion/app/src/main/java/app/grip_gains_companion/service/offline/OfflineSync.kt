@@ -15,6 +15,7 @@ import org.json.JSONTokener
 class OfflineSync(private val context: Context, private val training: OfflineTraining) {
     private var view: WebView? = null
     private var polling = false
+    private var curveVersion = ""
     private var inFlight: String? = null
     private var started = 0L
     private var retryAt = 0L
@@ -44,12 +45,12 @@ class OfflineSync(private val context: Context, private val training: OfflineTra
         if (inFlight!=null && now-started>90000) {inFlight=null;retryAt=now+30000;view?.reload();training.status("Sync interrupted. Saved sets will be checked before retrying.")}
         if (polling) return
         polling=true
-        view?.evaluateJavascript("JSON.stringify(window.PowercurveOfflineImport?.poll() || {})") { raw ->
+        view?.evaluateJavascript("JSON.stringify(window.PowercurveOfflineImport?.poll(${JSONObject.quote(curveVersion)}) || {})") { raw ->
             polling=false
             val state=runCatching {JSONObject(JSONTokener(raw).nextValue() as String)}.getOrNull() ?: return@evaluateJavascript
             val account=state.optString("account").takeUnless {it.isEmpty() || it=="null"}
             training.accountSeen(account,state.optString("name"))
-            state.optJSONObject("curves")?.let { cache -> cache.optJSONObject("data")?.let { training.cacheCurves(cache.optString("owner"),it) } }
+            state.optJSONObject("curves")?.let { cache -> cache.optJSONObject("data")?.let { training.cacheCurves(cache.optString("owner"),it); if(training.error.isEmpty()) curveVersion=cache.optString("owner")+":"+it.optLong("savedAt") } }
             val id=inFlight
             if (id!=null && state.optString("id")==id) when(state.optString("state")) {
                 "success" -> {training.acknowledge(id);inFlight=null;failures=0;retryAt=now+1000}

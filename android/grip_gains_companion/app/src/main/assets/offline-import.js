@@ -28,7 +28,7 @@
       });
       const current=await auth();
       if(String(current.id)!==owner) return;
-      curves={owner,data:{sides,savedAt:Date.now()}};
+      if(curves?.owner!==owner || JSON.stringify(curves.data.sides)!==JSON.stringify(sides)) curves={owner,data:{sides,savedAt:Date.now()}};
     } catch (_) { /* Keep the last verified local curve when offline. */ }
     finally { curveLoading=false; }
   }
@@ -82,12 +82,12 @@
       throw new Error('Import confirmation timed out. Will verify before retrying.');
     } catch(error) { result.state='error';result.message=error.message;running=false; }
   }
-  function poll() {
+  function poll(knownCurveVersion) {
     if(!running && Date.now()-checked>15000) {
       checked=Date.now();
       auth().then(user=>{result.account=String(user.id);result.name=user.name||'';refreshCurves(user);}).catch(()=>{result.account=null;result.name='';});
     }
-    return {...result, curves: curves?.owner===result.account ? curves : null};
+    return {...result, curves: curves?.owner===result.account && knownCurveVersion!==curves.owner+":"+curves.data.savedAt ? curves : null};
   }
   window.PowercurveOfflineImport={poll,submit};
 })();

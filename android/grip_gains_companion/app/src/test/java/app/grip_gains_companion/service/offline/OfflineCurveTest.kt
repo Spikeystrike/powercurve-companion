@@ -46,4 +46,19 @@ class OfflineCurveTest {
         assertEquals(25.15,curve.match(2,false)!!.weight,0.000001)
         assertEquals(55.5,curve.match(2,true)!!.weight,0.000001)
     }
+    @Test fun plotUsesIncreasingWeightAndDecreasingHoldTime() {
+        val curve=OfflineCurve(data())
+        val segments=curve.plotSegments()
+        assertEquals(5,segments.size)
+        segments.forEach { points ->
+            assertEquals(41,points.size)
+            points.zipWithNext().forEach { (left,right) ->
+                assertTrue(right.weightPounds>left.weightPounds)
+                assertTrue(right.seconds<left.seconds)
+            }
+            points.forEach { assertEquals(curve.hold(it.weightPounds),it.seconds,0.000001) }
+        }
+        assertEquals(30.0,segments.first().last().seconds,0.000001)
+        assertEquals(300.0,segments.last().first().seconds,0.000001)
+    }
 }

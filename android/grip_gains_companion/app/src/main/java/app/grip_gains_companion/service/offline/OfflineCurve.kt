@@ -13,7 +13,20 @@ class OfflineCurve(private val data: JSONObject) {
         fun zone(seconds: Double): Int = when { seconds < 48 -> 0; seconds < 82 -> 1; seconds < 129 -> 2; seconds < 180 -> 3; else -> 4 }
     }
     private val params = data.getJSONObject("params")
-    fun hold(pounds: Double): Double = params.getDouble("a") * exp(-params.getDouble("b") * (pounds - params.getDouble("x0"))) - params.getDouble("c") * pounds + params.getDouble("d")
+    private val a=params.getDouble("a")
+    private val b=params.getDouble("b")
+    private val x0=params.getDouble("x0")
+    private val c=params.getDouble("c")
+    private val d=params.getDouble("d")
+    data class PlotPoint(val weightPounds: Double, val seconds: Double)
+    fun plotSegments(): List<List<PlotPoint>> {
+        val bounds=listOf(30.0,48.0,82.0,129.0,180.0,300.0)
+        return (0..4).map { index ->
+            val low=pounds(bounds[index+1]); val high=pounds(bounds[index])
+            (0..40).map { step -> val weight=low+(high-low)*step/40; PlotPoint(weight,hold(weight)) }
+        }
+    }
+    fun hold(pounds: Double): Double = a * exp(-b * (pounds - x0)) - c * pounds + d
     fun pounds(seconds: Double): Double {
         var low=0.0; var high=500.0
         repeat(40) { val mid=(low+high)/2; if(hold(mid)>seconds) low=mid else high=mid }
