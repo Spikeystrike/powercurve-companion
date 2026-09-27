@@ -40,3 +40,10 @@ test('known curve version avoids resending the full curve payload',async()=>{
  assert.equal(f.api.poll(cache.owner+':'+cache.data.savedAt).curves,null);
  assert.ok(f.api.poll('different-account:0').curves);
 });
+
+test('history cache retains last sixty per side plus older latest zone',async()=>{
+ const rows=Array.from({length:70},(_,i)=>({id:70-i,date_time:new Date(Date.UTC(2026,8,27)-i*86400000).toISOString(),gripper:'crusher',side:'left',weight:40,rep_durations:[i===69?220:90]}));
+ const f=fixture({graph:{sides:[]},curveRows:rows});f.api.poll();await flush();
+ const cached=f.api.poll().curves.data.sessions;
+ assert.equal(cached.length,61);assert.equal(cached[0].id,70);assert.equal(cached.at(-1).id,1);
+});

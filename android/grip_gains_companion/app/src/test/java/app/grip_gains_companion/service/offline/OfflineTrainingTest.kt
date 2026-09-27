@@ -206,4 +206,22 @@ class OfflineTrainingTest {
         restored.discardSet()
         assertFalse(training().first.inProgress);assertEquals(0,restored.pending)
     }
+    @Test fun importedSetRemainsInHistoryAcrossRestartBeforeServerRefresh() {
+        val (t,_)=training();t.accountSeen("7","Test")
+        t.start("crusher","left",20.0,1,0,0)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep()
+        val before=t.history("crusher","left").single();assertTrue(before.pending)
+        t.acknowledge(t.queue().single().getString("id"))
+        assertEquals(0,t.pending)
+        val after=training().first.history("crusher","left").single()
+        assertFalse(after.pending);assertEquals(before.hold,after.hold,0.0)
+    }
+    @Test fun historyRefreshIsAppliedEvenWhenCurveHasNotChanged() {
+        val (t,_)=training();t.accountSeen("7","Test")
+        val cache=JSONObject().put("sides",JSONArray()).put("sessions",JSONArray())
+        t.cacheCurves("7",cache)
+        val row=JSONObject("""{"date_time":"2026-09-27T12:00:00Z","gripper":"crusher","side":"left","weight":40,"rep_durations":[70]}""")
+        t.cacheCurves("7",JSONObject(cache.toString()).put("sessions",JSONArray().put(row)))
+        assertEquals(70.0,t.history("crusher","left").single().hold,0.0)
+    }
 }

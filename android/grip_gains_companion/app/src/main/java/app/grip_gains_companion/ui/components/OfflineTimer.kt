@@ -63,7 +63,8 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={gripper=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})} }
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("left","right").forEach {item->FilterChip(selected=side==item,onClick={side=item;targetTime=""},label={Text(item.replaceFirstChar(Char::uppercase))})}}
             val curve=training.curve(gripper,side)
-            OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull()) { match ->
+            val history=remember(revision,gripper,side) {training.history(gripper,side)}
+            OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull(),history,targetTime.toIntOrNull()) { match ->
                 weight=String.format(java.util.Locale.US,"%.2f",match.weight)
                 reps=match.zone.reps.toString()
                 targetTime=match.seconds.toString()
@@ -85,7 +86,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             Text("${training.phase.replaceFirstChar(Char::uppercase)} · ${training.seconds}s",style=MaterialTheme.typography.headlineLarge)
             if(active.optInt("targetDuration")>0) {
                 Text("Target hold: ${active.getInt("targetDuration")} s")
-                if(training.phase=="rep") Text("Target countdown: ${training.targetRemaining} s",style=MaterialTheme.typography.headlineMedium)
+                if(training.phase=="rep" && done==0) Text("Target countdown: ${training.targetRemaining} s",style=MaterialTheme.typography.headlineMedium)
             }
             Text("$done / ${active.getInt("plannedReps")} reps completed")
             if(training.phase=="paused") {

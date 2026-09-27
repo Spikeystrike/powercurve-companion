@@ -154,12 +154,21 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
             runCatching { OfflineCurve(side) }.getOrNull()?.let { curveModels[side.optString("gripper")+":"+side.optString("side")]=it }
         }
     }
+    fun history(gripper: String, side: String): List<OfflineHistorySet> {
+        val snapshot=state
+        val local=mutableListOf<JSONObject>()
+        for(key in listOf("queue","localHistory")) {
+            val rows=snapshot.optJSONArray(key) ?: continue
+            for(i in 0 until rows.length()) local.add(rows.getJSONObject(i).put("pending",key=="queue"))
+        }
+        return OfflineHistorySet.merge(cachedCurveData?.optJSONArray("sessions"),local,snapshot.optString("lastAccount"),gripper,side)
+    }
     fun curve(gripper: String, side: String): OfflineCurve? {
         return curveModels[gripper+":"+side]
     }
     fun cacheCurves(owner: String, data: JSONObject) {
         if(owner!=account || !data.has("sides")) return
-        if(cachedCurveData?.optJSONArray("sides")?.toString()==data.optJSONArray("sides")?.toString()) return
+        if(cachedCurveData?.optJSONArray("sides")?.toString()==data.optJSONArray("sides")?.toString() && cachedCurveData?.optJSONArray("sessions")?.toString()==data.optJSONArray("sessions")?.toString()) return
         if(save { state -> val caches=state.optJSONObject("curvesByOwner") ?: JSONObject(); caches.put(owner,data);state.put("curvesByOwner",caches) }) refreshCurveMemory()
     }
     fun assignUnowned() { val id=account ?: return;save {state -> val q=state.optJSONArray("queue")?:JSONArray();for(i in 0 until q.length())if(q.getJSONObject(i).optString("owner").isEmpty())q.getJSONObject(i).put("owner",id)} }

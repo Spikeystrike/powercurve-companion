@@ -42,10 +42,23 @@ class OfflineStore(context: Context) {
         val queue = state.optJSONArray("queue") ?: JSONArray()
         val remaining = JSONArray()
         var found = false
+        val history=state.optJSONArray("localHistory") ?: JSONArray()
         for (i in 0 until queue.length()) {
             val record = queue.getJSONObject(i)
-            if (record.getString("id") == id) found = true else remaining.put(record)
+            if (record.getString("id") == id) { found = true; history.put(record) } else remaining.put(record)
         }
+        // Preserve recently imported local sets until the server curve/session cache catches up.
+        val retained=JSONArray();val counts=mutableMapOf<String,Int>();val zones=mutableSetOf<String>()
+        for(i in history.length()-1 downTo 0) {
+            val row=history.getJSONObject(i);val parsed=OfflineHistorySet.parse(row,true,false) ?: continue
+            val key=row.optString("owner")+":"+parsed.gripper+":"+parsed.side
+            val count=counts[key] ?: 0;counts[key]=count+1
+            val latest=zones.add(key+":"+parsed.zone)
+            if(count<60 || latest) retained.put(row)
+        }
+        // Restore oldest-first insertion order for the next acknowledgement.
+        val chronological=JSONArray();for(i in retained.length()-1 downTo 0) chronological.put(retained.getJSONObject(i))
+        if(found) state.put("localHistory",chronological)
         if (found) state.put("queue", remaining).put("synced", state.optInt("synced") + 1).put("syncedAt", System.currentTimeMillis())
     }
 }

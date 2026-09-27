@@ -26,9 +26,20 @@
         return count>=5 && count===side.session_count && ['a','b','x0','c','d'].every(k=>Number.isFinite(side.params?.[k]))
           && !(graph.stale_sides || []).some(s=>s.gripper===side.gripper && s.side===side.side);
       });
+      // Keep the last 60 per gripper/hand plus the latest set of every time zone for its detail card.
+      const ordered=rows.sessions.filter(s=>!s.excluded_from_metrics && !s.hidden_from_graphs)
+        .sort((a,b)=>new Date(b.date_time)-new Date(a.date_time) || Number(b.id)-Number(a.id));
+      const counts=new Map(), zones=new Set();
+      const sessions=ordered.filter(s=>{
+        const key=s.gripper+':'+s.side, count=counts.get(key)||0;
+        const hold=Array.isArray(s.rep_durations)&&s.rep_durations.length ? Math.max(...s.rep_durations) : s.max_hold;
+        const zone=hold<48?0:hold<82?1:hold<129?2:hold<180?3:4;
+        const zoneKey=key+':'+zone, latest=!zones.has(zoneKey);
+        counts.set(key,count+1);zones.add(zoneKey);return count<60 || latest;
+      }).map(s=>({id:s.id,date_time:s.date_time,gripper:s.gripper,side:s.side,weight:s.weight,rep_durations:s.rep_durations,max_hold:s.max_hold}));
       const current=await auth();
       if(String(current.id)!==owner) return;
-      if(curves?.owner!==owner || JSON.stringify(curves.data.sides)!==JSON.stringify(sides)) curves={owner,data:{sides,savedAt:Date.now()}};
+      if(curves?.owner!==owner || JSON.stringify(curves.data.sides)!==JSON.stringify(sides) || JSON.stringify(curves.data.sessions)!==JSON.stringify(sessions)) curves={owner,data:{sides,sessions,savedAt:Date.now()}};
     } catch (_) { /* Keep the last verified local curve when offline. */ }
     finally { curveLoading=false; }
   }

@@ -90,9 +90,24 @@ class OfflineUiInstrumentedTest {
         ui.runOnUiThread {training.start("crusher","left",20.0,3,0,0,5)}
         ui.onNodeWithText("Target countdown: 5 s").assertIsDisplayed()
         ui.onNodeWithText("End rep").performClick()
+        ui.onNodeWithText("Target countdown:",substring=true).assertDoesNotExist()
         ui.onNodeWithText("Discard set without saving").performClick()
         ui.onNodeWithText("Start set").performScrollTo().assertExists()
         assertEquals(0,training.pending)
         assertFalse(OfflineStore(context).snapshot().has("active"))
+    }
+    @Test fun historyShowsSixtySetsAndLastZoneDetailsWithoutFittedCurve() {
+        ui.runOnUiThread {
+            val rows=org.json.JSONArray()
+            repeat(65) {i->rows.put(JSONObject().put("date_time",java.time.Instant.parse("2026-09-27T12:00:00Z").minusSeconds(i*86400L).toString()).put("gripper","crusher").put("side","left").put("weight",40+i*0.2).put("rep_durations",org.json.JSONArray().put(if(i==0) 220 else 90)))}
+            training.accountSeen("history-test","Test")
+            training.cacheCurves("history-test",JSONObject().put("sides",org.json.JSONArray()).put("sessions",rows).put("savedAt",1790500000000L))
+        }
+        ui.onNodeWithTag("offline-history-count").performScrollTo().assertTextContains("60 recent sets",substring=true)
+        ui.onNodeWithText("Endurance",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithTag("offline-last-zone-set").performScrollTo().assertTextContains("Last Endurance set",substring=true)
+        ui.onNodeWithTag("offline-last-zone-set").assertTextContains("220.0 s",substring=true)
+        ui.onNodeWithTag("offline-last-zone-set").assertTextContains("days ago",substring=true)
+        ui.onNodeWithTag("offline-timer").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,File(context.cacheDir,"offline-history-test.png").outputStream())
     }
 }

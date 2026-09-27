@@ -1,5 +1,17 @@
 # Validation
 
+## 0.1.9
+
+Local validation on 2026-09-27:
+
+- Debug APK and test APK built successfully (versionCode 11 / versionName 0.1.9).
+- 39 JVM/Robolectric tests passed. New coverage includes longest-rep time-zone classification, rank-based opacity, calendar-day age, account/side isolation, pending/server deduplication, local history after acknowledgement/restart, and history-only cache updates.
+- 21 JavaScript tests passed, including per-side retention of the latest 60 sets plus older latest-zone details.
+- All 6 Android emulator instrumented tests passed. UI coverage checks 60 historical points and last-zone details without a fitted curve, plus hiding the target countdown after rep one. The fading points and zone highlights were visually inspected.
+- History is cached per account. Offline queued sets are merged immediately; acknowledged local sets remain available until refreshed server data arrives. The fitted curve itself still refreshes online.
+- Older server history requires one connected signed-in cache refresh after updating. Production authenticated history retrieval and physical BLE remain unverified; existing lint limitations remain.
+
+
 ## 0.1.8
 
 Local validation on 2026-09-27:
