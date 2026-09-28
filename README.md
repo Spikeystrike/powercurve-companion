@@ -26,6 +26,8 @@ A valid target is required. Changing the target or reconnecting the sensor requi
 
 ## Offline training
 
+Tap the cloud-off icon beside Settings to open the local timer and saved curve even while online. Synchronization stays enabled. The shortcut is disabled during a running website set; use **Return to Powercurve** to go back when no local set is running.
+
 Without internet, use the **Offline set timer**. Bluetooth measurements and the live force graph remain available with a connected sensor. Enable **Show Force Graph** to keep the graph panel expanded.
 
 1. Choose gripper and side. Switching either clears the previous weight, reps and target hold; an available curve recommendation fills them for the new selection. Your personal **Force curve** is saved while signed in online and remains available offline, with weight on the horizontal axis and hold time on the vertical axis. Tap the curve to set the timer weight, target hold time and recommended reps. The selected point, axis values and guide lines update with zone selection or direct weight entry. Both guide lines stop at the point. The weight axis starts just below the lowest plotted weight and extends 5% beyond the curve’s zero crossing. For a fit with no zero crossing within the model range, it extends past the 1-second point instead. Select **Endurance**, **Strength Endurance**, **Strength**, **Power Strength** or **Power** to fill matching weight, estimated hold time and reps. Entering a weight updates target hold time and the standard reps for its calculated zone. **Match hold time** accepts **1–400 seconds** when the saved curve supports that time. The time axis always spans **0–300 seconds**.

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -443,6 +444,12 @@ fun MainScreen(
                                     }) { Icon(Icons.Default.Analytics, "History", tint = Color.White) }
                                 }
 
+                                IconButton(onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    offline.openTimer()
+                                }, enabled = !webViewBridge.webSetRunning) {
+                                    Icon(Icons.Default.CloudOff, "Open offline mode", tint = if(offlineTimer) MaterialTheme.colorScheme.primary else if(webViewBridge.webSetRunning) Color.Gray else Color.White)
+                                }
                                 IconButton(onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onSettingsTap()

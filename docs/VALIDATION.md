@@ -1,5 +1,14 @@
 # Validation
 
+## 0.1.17
+
+Local validation on 2026-09-28:
+
+- Optimized release APK built (versionCode 19 / versionName 0.1.17); all 50 JVM/Robolectric tests passed.
+- Installed and launched the release APK in the Android emulator. Verified the Open offline mode icon beside Settings and tapped it with internet available: the Local set timer and Force curve panel appeared.
+- The shortcut reuses the existing local timer entry point and leaves background synchronization enabled. It is disabled while a website set is running.
+- Physical-device and authenticated-account checks remain unverified.
+
 ## 0.1.16
 
 Local validation on 2026-09-27:
