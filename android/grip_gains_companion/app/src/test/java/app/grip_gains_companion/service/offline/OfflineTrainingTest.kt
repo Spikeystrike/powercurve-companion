@@ -344,13 +344,19 @@ class OfflineTrainingTest {
         assertFalse(saved.has("realResults"));assertFalse(saved.has("readings"))
         assertFalse(File(context.filesDir,"offline-training.json").readText().contains(t.realResults.last().pounds.toString()))
     }
-    @Test fun realForceSignalLossNeverCountsAnUnmeasuredRepAndRecoveryKeepsFirstWeight() {
+    @Test fun realForceSignalLossKeepsRepRunningAndAppRecoveryKeepsFirstWeight() {
         val (t,_)=training();t.configureRealForce(true,"median",true,0.5,250)
         t.startRealForce("micro","left",40.0,2,0,null)
         realRep(t,20.0);val weight=t.active!!.getDouble("weightLbs")
         t.forceSample(20.0,android.os.SystemClock.elapsedRealtime());assertEquals("rep",t.phase)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(2));t.tick(android.os.SystemClock.elapsedRealtime())
-        assertEquals("paused",t.phase);assertEquals(1,t.active!!.getJSONArray("reps").length())
+        assertEquals("rep",t.phase);assertEquals(2,t.seconds);assertEquals(1,t.active!!.getJSONArray("reps").length())
+        t.configureRealForce(true,"median",false,0.5,250)
+        t.tick(android.os.SystemClock.elapsedRealtime()+2000)
+        assertEquals("rep",t.phase);assertEquals(4,t.seconds)
+        t.configureRealForce(true,"median",true,0.5,250)
+        t.forceSample(20.0,android.os.SystemClock.elapsedRealtime()+2100)
+        assertEquals("rep",t.phase)
         val (restored,_)=training();restored.configureRealForce(true,"average",true,0.5,250)
         assertEquals("paused",restored.phase);assertEquals(weight,restored.active!!.getDouble("weightLbs"),0.0)
         assertEquals("median",restored.active!!.getString("realMethod"))

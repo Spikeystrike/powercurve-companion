@@ -6,7 +6,7 @@ Android companion for [Powercurve](https://powercurve.tantaluspath.com) with Blu
 
 1. Install the APK on **Android 10 or newer** and allow Bluetooth permissions. Android 10/11 also requires location services for device discovery.
 2. Sign in to Powercurve inside the app.
-3. Select a **Tindeq Progressor**, **PitchSix Force Board** or **Weiheng WH-C06** from the Bluetooth menu. Keep the sensor unloaded during the five-second calibration.
+3. Select a **Tindeq Progressor**, **PitchSix Force Board** or **Weiheng WH-C06** from the Bluetooth menu. If **Auto calibrate on connect** is enabled, keep the sensor unloaded during the five-second calibration. Manual recalibration remains available when it is disabled.
 4. Enter your target in the timer's **Weight** field. The graph and target feedback follow this weight. Display units can be kg or lb.
 5. Start a set. View the live force graph and end reps manually or use automatic force-drop detection.
 6. When training online, tap **Save session** after the set.
@@ -119,6 +119,6 @@ Enable **Real Force** in Settings and select **Median** or **Average**. Median u
 - The statistic uses calibrated force readings starting at the threshold crossing. The final release readings at or below the drop limit are excluded, so letting go during the confirmation time does not lower the training weight. Timing still ends at the confirmed drop. No readings are invented during gaps.
 - Rep 1 sets the saved weight and the target for all subsequent reps. Between reps, the normal rest timer runs; a tone and **Pull when ready** cue follow. Timing starts only when the threshold is reached again.
 - Results appear above the save controls and show each rep's measured weight and duration. Normal local sets also show every completed rep's duration above the save controls. Only the first weight and all completed durations are saved and imported. Later weights stay in memory for the result display and disappear on the next set or app restart.
-- A lost connection, a reading gap longer than 1.5 seconds, or leaving the app during a rep pauses measurement and excludes the unfinished rep. Completed reps remain recoverable. Reconnect and choose **Continue set** to pull again.
+- During signal gaps or disconnections, the rep and its timer keep running. When readings return, a force drop ends an armed rep after the usual confirmation using fresh samples. Missing readings are never treated as zero or included in the weight statistic. Leaving the app still pauses measurement and excludes the unfinished rep; completed reps remain recoverable.
 
 Real Force sets run in the local timer even when started online. Use **Save set** after all reps, or the existing hold-to-save/hold-to-discard actions. Saved sets use the normal automatic import queue.

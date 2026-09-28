@@ -63,7 +63,15 @@ class ProgressorHandler {
     // MARK: - External Input
 
     var canEngage: Boolean = false
+    private var manualCalibration = false
     var enableCalibration: Boolean = true
+        set(value) {
+            field = value
+            if (!value && !manualCalibration && calibrating) {
+                _state.value = ProgressorState.Idle(0.0)
+                _calibrationTimeRemaining.value = 0
+            }
+        }
     var engageThreshold: Double = AppConstants.DEFAULT_ENGAGE_THRESHOLD
     var failThreshold: Double = AppConstants.DEFAULT_FAIL_THRESHOLD
     var targetWeight: Double? = null
@@ -173,6 +181,7 @@ class ProgressorHandler {
      * Reset handler state for a new session
      */
     fun reset() {
+        manualCalibration = false
         resetCommonState()
         _currentForce.value = 0.0
     }
@@ -181,6 +190,7 @@ class ProgressorHandler {
      * Trigger recalibration
      */
     fun recalibrate() {
+        manualCalibration = true
         resetCommonState()
     }
 
@@ -207,7 +217,7 @@ class ProgressorHandler {
                 if (_forceHistory.value.isEmpty()) {
                     _forceHistory.value = emptyList()
                 }
-                if (enableCalibration) {
+                if (enableCalibration || manualCalibration) {
                     _state.value = ProgressorState.Calibrating(
                         startTimeMs = System.currentTimeMillis(),
                         samples = listOf(sample)
@@ -227,6 +237,7 @@ class ProgressorHandler {
 
                 if (elapsed >= AppConstants.CALIBRATION_DURATION_MS) {
                     val baselineAvg = newSamples.map { it.weight }.average()
+                    manualCalibration = false
                     _state.value = ProgressorState.Idle(baselineAvg)
                     _calibrationTimeRemaining.value = 0
                     _calibrationCompleted.emit(Unit)

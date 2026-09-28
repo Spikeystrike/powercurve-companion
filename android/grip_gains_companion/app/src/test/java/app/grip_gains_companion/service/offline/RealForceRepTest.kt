@@ -16,6 +16,19 @@ class RealForceRepTest {
         assertNull(rep.sample(8.0,2700))
         return result
     }
+    @Test fun gapsPreserveTimeAndArmingWithoutInventingWeightSamples() {
+        val rep=RealForceRep(20.0,"average",0.5,250)
+        repeat(11) {assertNull(rep.sample(20.0,it*100L))}
+        assertNull(rep.sample(20.0,5000))
+        assertNull(rep.sample(0.0,10000))
+        assertNull(rep.sample(0.0,10100))
+        assertNull(rep.sample(0.0,10200))
+        assertNull(rep.sample(0.0,10300))
+        assertNull(rep.sample(0.0,10400))
+        val result=rep.sample(0.0,10500)!!
+        assertEquals(11,result.seconds)
+        assertEquals(20.0,result.pounds*0.45359237,0.000001)
+    }
     @Test fun medianExcludesReleaseAndFiresOnce() {
         assertEquals(20.0,measured("median").pounds*0.45359237,0.000001)
     }

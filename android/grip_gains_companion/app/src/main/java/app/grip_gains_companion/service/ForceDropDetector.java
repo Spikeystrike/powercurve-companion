@@ -33,9 +33,11 @@ public final class ForceDropDetector {
         if (Double.compare(targetKg, targetWeight) != 0) {
             reset(); repKey = key;
         }
-        // A disconnect/gap requires a new stable load before arming, never ends a rep.
-        if (lastTime >= 0 && (nowMs < lastTime || nowMs - lastTime > 1500)) {
-            reset(); repKey = key;
+        // Keep an armed rep through gaps, but confirm drops using fresh samples only.
+        if (lastTime >= 0 && nowMs < lastTime) return false;
+        if (lastTime >= 0 && nowMs - lastTime > 1500) {
+            loadedSince = belowSince = -1;
+            window.clear();
         }
         targetWeight = targetKg;
         lastTime = nowMs;

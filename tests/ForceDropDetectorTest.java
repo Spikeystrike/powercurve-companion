@@ -23,8 +23,9 @@ public class ForceDropDetectorTest {
         for (long t = 2100; t < 3000; t += 50) check(!feed(d, 0, t, "1", true), "once per rep");
         for (long t = 3000; t < 4000; t += 50) check(!feed(d, 20, t, "rest", false), "rest ignored");
         arm(d, "2", 4000);
-        check(!feed(d, 0, 7000, "2", true), "gap must disarm");
-        for (long t = 7050; t < 8000; t += 50) check(!feed(d, 0, t, "2", true), "no failure after disconnect");
+        check(!feed(d, 0, 7000, "2", true), "gap alone does not finish");
+        for (long t = 7050; t < 7350; t += 50) check(!feed(d, 0, t, "2", true), "fresh drop confirmation");
+        check(feed(d, 0, 7350, "2", true), "confirmed low readings after gap finish rep");
         arm(d, "3", 8000);
         check(!feed(d, Double.NaN, 8650, "3", true), "invalid packet");
         check(!feed(d, Double.POSITIVE_INFINITY, 8700, "3", true), "invalid packet");

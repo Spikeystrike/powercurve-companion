@@ -49,7 +49,6 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     fun configureRealForce(enabled: Boolean, method: String, connected: Boolean, drop: Double, hold: Long) {
         realForceEnabled=enabled;realForceMethod=if(method=="average") "average" else "median"
         forceMeterConnected=connected;realDrop=drop;realHold=hold
-        if(!connected) pauseRealForce("Force meter disconnected. The unfinished rep was not counted.")
         bridge.updateRealForceOptions()
     }
     fun startRealForce(gripper: String, side: String, pounds: Double, reps: Int, rest: Int, target: Int?) {
@@ -63,8 +62,6 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     fun forceSample(kg: Double, now: Long) {
         if(!isRealForce || !forceMeterConnected || phase !in listOf("ready","rep") || !kg.isFinite()) return
         val record=active ?: return
-        val last=realRep?.lastSampleAt
-        if(phase=="rep" && last!=null && now-last>1500) {pauseRealForce("Force signal interrupted. The unfinished rep was not counted.");return}
         val engine=realRep ?: RealForceRep(record.getDouble("weightLbs")*0.45359237,record.getString("realMethod"),record.getDouble("realDrop"),record.getLong("realHoldMs")).also {realRep=it}
         val result=engine.sample(kg,now)
         if(phase=="ready" && engine.startedAt!=null) {phase="rep";phaseStart=engine.startedAt!!;seconds=0;realMessage="";publish()}
@@ -165,8 +162,6 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     internal fun tick(now: Long) {
         val record=active ?: return
         if(isRealForce && phase=="rep") {
-            val last=realRep?.lastSampleAt
-            if(last==null || now-last>1500) {pauseRealForce("Force signal interrupted. The unfinished rep was not counted.");return}
             if(now-phaseStart>3600000) {pauseRealForce("Maximum rep duration reached. The unfinished rep was not counted.");return}
         }
         val elapsed=((now-phaseStart)/1000).toInt().coerceAtLeast(0)

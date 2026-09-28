@@ -70,6 +70,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var preferencesRepository: PreferencesRepository
     private lateinit var hapticManager: HapticManager
 
+    private val calibrationPreferencesReady = kotlinx.coroutines.CompletableDeferred<Unit>()
+
     private val forceDropDetector = app.grip_gains_companion.service.ForceDropDetector()
     private var autoEndEnabled = true
     private var forceDropFraction = 0.50
@@ -148,6 +150,7 @@ class MainActivity : ComponentActivity() {
         bluetoothManager.onForceSample = { force, timestamp ->
             lifecycleScope.launch {
                 if (!force.isFinite()) return@launch
+                calibrationPreferencesReady.await()
                 progressorHandler.processSample(force, timestamp)
                 val measuredKg = progressorHandler.currentForce.value
                 if (isoSessionManager.isRepActive) isoSessionManager.addSample(measuredKg)
@@ -247,12 +250,9 @@ class MainActivity : ComponentActivity() {
                 previousForce = currentForce
             }
 
-            LaunchedEffect(enableCalibration) {
-                progressorHandler.enableCalibration = enableCalibration
-            }
             LaunchedEffect(connectionState) {
                 if (connectionState == ConnectionState.Connected && enableHaptics) hapticManager.success()
-                if (connectionState != ConnectionState.Connected) {
+                if (connectionState != ConnectionState.Connected && !webViewBridge.isFreshActive && !webViewBridge.offline.isRealForce) {
                     forceDropDetector.reset()
                     progressorHandler.reset()
                 }
@@ -588,6 +588,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupEventHandlers() {
+        lifecycleScope.launch {
+            preferencesRepository.enableCalibration.collect { enabled ->
+                progressorHandler.enableCalibration = enabled
+                calibrationPreferencesReady.complete(Unit)
+            }
+        }
         lifecycleScope.launch {
             kotlinx.coroutines.flow.combine(preferencesRepository.realForceEnabled,preferencesRepository.realForceMethod,bluetoothManager.connectionState,
                 preferencesRepository.failThreshold,preferencesRepository.forceDropHoldMs) { enabled,method,connection,drop,hold ->
