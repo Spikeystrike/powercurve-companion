@@ -49,6 +49,10 @@ class OfflineUiInstrumentedTest {
         ui.setContent {GripGainsTheme(darkTheme=true) {Column {OfflineStatus(training,useLbs.value);OfflineTimer(training,useLbs.value,Modifier.height(panelHeight.value).fillMaxWidth().testTag("offline-timer"))}}}
     }
     @After fun cleanup() {directory.listFiles()?.forEach {it.delete()};directory.delete()}
+    @Test fun startsWithMicroLeft() {
+        ui.onNodeWithText("Micro").assertIsSelected()
+        ui.onNodeWithText("Left").assertIsSelected()
+    }
     @Test fun twoSetsCanBeCompletedAndRemainQueuedAcrossReopening() {
         ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
         ui.onNodeWithText("Reps (1–100)").performScrollTo().performTextReplacement("1")
@@ -68,7 +72,7 @@ class OfflineUiInstrumentedTest {
     @Test fun cachedCurveSelectsMatchingZoneAndKeepsBackgroundWhenResized() {
         ui.runOnUiThread {
             training.accountSeen("curve-test","Test")
-            training.cacheCurves("curve-test",JSONObject("""{"savedAt":1790500000000,"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[{"hold":40},{"hold":60},{"hold":100},{"hold":150},{"hold":230}],"zone_characteristic_times":{"power":40,"power_strength":60,"strength":100,"strength_endurance":150,"endurance":230}}]}"""))
+            training.cacheCurves("curve-test",JSONObject("""{"savedAt":1790500000000,"sides":[{"gripper":"micro","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[{"hold":40},{"hold":60},{"hold":100},{"hold":150},{"hold":230}],"zone_characteristic_times":{"power":40,"power_strength":60,"strength":100,"strength_endurance":150,"endurance":230}}]}"""))
         }
         ui.onNodeWithText("Endurance").assertIsSelected()
         ui.onNodeWithText("Hold time (s) vs weight (kg)").performScrollTo().assertIsDisplayed()
@@ -124,7 +128,7 @@ class OfflineUiInstrumentedTest {
         assertEquals(before[before.width-1,100],after[after.width-1,100])
     }
     @Test fun targetCountdownAndDiscardControlsAreAvailableDuringARep() {
-        ui.runOnUiThread {training.start("crusher","left",20.0,3,0,0,5)}
+        ui.runOnUiThread {training.start("crusher","left",20.0/0.45359237,3,0,0,5)}
         ui.onNodeWithText("Target countdown: 5 s").assertIsDisplayed()
         ui.onNodeWithText("End rep").performClick()
         ui.onNodeWithText("Target countdown:",substring=true).assertDoesNotExist()
@@ -136,7 +140,7 @@ class OfflineUiInstrumentedTest {
     @Test fun historyShowsSixtySetsAndLastZoneDetailsWithoutFittedCurve() {
         ui.runOnUiThread {
             val rows=org.json.JSONArray()
-            repeat(65) {i->rows.put(JSONObject().put("date_time",java.time.Instant.parse("2026-09-27T12:00:00Z").minusSeconds(i*86400L).toString()).put("gripper","crusher").put("side","left").put("weight",40+i*0.2).put("rep_durations",org.json.JSONArray().put(if(i==0) 220 else 90)))}
+            repeat(65) {i->rows.put(JSONObject().put("date_time",java.time.Instant.parse("2026-09-27T12:00:00Z").minusSeconds(i*86400L).toString()).put("gripper","micro").put("side","left").put("weight",40+i*0.2).put("rep_durations",org.json.JSONArray().put(if(i==0) 220 else 90)))}
             training.accountSeen("history-test","Test")
             training.cacheCurves("history-test",JSONObject().put("sides",org.json.JSONArray()).put("sessions",rows).put("savedAt",1790500000000L))
         }
@@ -160,7 +164,7 @@ class OfflineUiInstrumentedTest {
             ui.onNodeWithText("Start set").performScrollTo().assertIsNotEnabled()
         }
         enter()
-        ui.onNodeWithText("Crusher").performScrollTo().performClick()
+        ui.onNodeWithText("Micro").performScrollTo().performClick()
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("20")
         for(gripper in listOf("Prime","Micro","Crusher")) {
             ui.onNodeWithText(gripper).performScrollTo().performClick();cleared();enter()
@@ -171,13 +175,13 @@ class OfflineUiInstrumentedTest {
     }
 
     @Test fun pendingSetCanBeEditedAndDeletedFromTheDialog() {
-        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0);training.endRep();training.finish()}
+        ui.runOnUiThread {training.start("prime","left",20.0/0.45359237,1,0,0);training.endRep();training.finish()}
         ui.onNodeWithText("Review pending sets").performClick()
         ui.onNodeWithText("Edit or delete").performClick()
         ui.onNodeWithText("Set weight (kg)").performTextReplacement("22")
         ui.onNodeWithText("Rep durations (seconds, comma-separated)").performTextReplacement("30, 40")
         ui.onNodeWithText("Save changes").performClick()
-        assertEquals(22.0,training.queue().single().getDouble("weightKg"),0.0)
+        assertEquals(22.0/0.45359237,training.queue().single().getDouble("weightLbs"),0.0)
         ui.onNodeWithText("Edit or delete").performClick()
         ui.onNodeWithText("Delete set").performClick()
         ui.onNodeWithText("Delete",substring=false).performClick()
@@ -188,7 +192,7 @@ class OfflineUiInstrumentedTest {
     @Test fun curveTapWithoutZoneEvidenceDoesNotChangeTimerTargets() {
         ui.runOnUiThread {
             training.accountSeen("tap-test","Test")
-            training.cacheCurves("tap-test",JSONObject("""{"sides":[{"gripper":"crusher","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[]}]}"""))
+            training.cacheCurves("tap-test",JSONObject("""{"sides":[{"gripper":"micro","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[]}]}"""))
         }
         ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
         ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
@@ -206,7 +210,7 @@ class OfflineUiInstrumentedTest {
         ui.waitForIdle()
     }
     @Test fun prematureSaveAndDiscardRequireHoldingAndCompletedSetUsesNormalSave() {
-        ui.runOnUiThread {training.start("prime","left",20.0,2,60,0);training.endRep()}
+        ui.runOnUiThread {training.start("prime","left",20.0/0.45359237,2,60,0);training.endRep()}
         ui.onNodeWithText("Locked").assertIsNotEnabled()
         ui.onNodeWithText("Hold to save set now").performScrollTo().performTouchInput {click()}
         assertEquals(0,training.pending);assertTrue(training.inProgress)
@@ -214,16 +218,16 @@ class OfflineUiInstrumentedTest {
         assertEquals(0,training.pending)
         hold("Hold to save set now")
         assertEquals(1,training.pending)
-        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0)}
+        ui.runOnUiThread {training.start("prime","left",20.0/0.45359237,1,0,0)}
         hold("Discard set without saving",600);assertTrue(training.inProgress)
         hold("Discard set without saving");assertFalse(training.inProgress);assertEquals(1,training.pending)
-        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0);training.endRep()}
+        ui.runOnUiThread {training.start("prime","left",20.0/0.45359237,1,0,0);training.endRep()}
         assertEquals(1,training.pending)
         ui.onNodeWithText("Save set").performScrollTo().performClick()
         assertEquals(2,training.pending)
     }
     @Test fun pendingEditorUsesPoundsAndConvertsEditedWeight() {
-        ui.runOnUiThread {useLbs.value=true;training.start("prime","left",20.0,1,0,0);training.endRep();training.finish()}
+        ui.runOnUiThread {useLbs.value=true;training.start("prime","left",20.0/0.45359237,1,0,0);training.endRep();training.finish()}
         ui.onNodeWithText("Review pending sets").performClick()
         ui.onNodeWithText("44.092 lb",substring=true).assertExists()
         ui.onNodeWithText("Edit or delete").performClick()
@@ -231,7 +235,7 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Set weight (lb)").performTextReplacement("50.12345")
         ui.onNodeWithText("Set weight (lb)").assertTextContains("50.123")
         ui.onNodeWithText("Save changes").performClick()
-        assertEquals(50.123*0.45359237,training.queue().single().getDouble("weightKg"),0.000001)
+        assertEquals(50.123,training.queue().single().getDouble("weightLbs"),0.000001)
         ui.onNodeWithText("Done").performClick()
     }
 }

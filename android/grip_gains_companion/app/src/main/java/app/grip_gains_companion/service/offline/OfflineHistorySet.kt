@@ -19,7 +19,7 @@ data class OfflineHistorySet(val date: String, val pounds: Double, val hold: Dou
             val array=row.optJSONArray(if(local) "reps" else "rep_durations") ?: JSONArray()
             val reps=(0 until array.length()).map {array.optDouble(it)}.filter {it.isFinite() && it>0}
             val hold=reps.maxOrNull() ?: row.optDouble("max_hold")
-            val pounds=if(local) row.optDouble("weightKg")/0.45359237 else row.optDouble("weight")
+            val pounds=if(local) row.optDouble("weightLbs") else row.optDouble("weight")
             val date=row.optString("date_time")
             if(!hold.isFinite() || hold<=0 || !pounds.isFinite() || pounds<=0 || runCatching {Instant.parse(date)}.isFailure) return null
             return OfflineHistorySet(date,pounds,hold,row.optString("gripper"),row.optString("side"),reps,pending)

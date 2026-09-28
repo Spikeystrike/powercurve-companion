@@ -30,6 +30,29 @@ class OfflineTrainingTest {
         bridge.offline=training
         return training to bridge
     }
+    @Test fun legacyKilogramsMigrateOnceAcrossAllLocalRecords() {
+        val legacy=JSONObject().put("lastAccount","7").put("synced",3)
+        val row=JSONObject().put("id","old").put("owner","7").put("weightKg",20.123456789).put("reps",JSONArray().put(40)).put("uploadStarted",true)
+        for(key in listOf("active","webActive","defaults")) legacy.put(key,JSONObject(row.toString()))
+        for(key in listOf("queue","localHistory")) legacy.put(key,JSONArray().put(JSONObject(row.toString())))
+        legacy.put("curvesByOwner",JSONObject().put("7",JSONObject().put("sessions",JSONArray().put(JSONObject().put("weight",44.0)))))
+        File(context.filesDir,"offline-training.json").writeText(legacy.toString())
+        val migrated=OfflineStore(context).snapshot()
+        assertEquals(2,migrated.getInt("schemaVersion"))
+        val rows=listOf("active","webActive","defaults").map {migrated.getJSONObject(it)}+listOf("queue","localHistory").map {migrated.getJSONArray(it).getJSONObject(0)}
+        rows.forEach {assertFalse(it.has("weightKg"));assertEquals(20.123456789/0.45359237,it.getDouble("weightLbs"),0.0);assertTrue(it.getBoolean("uploadStarted"));assertEquals("old",it.getString("id"))}
+        assertEquals(44.0,migrated.getJSONObject("curvesByOwner").getJSONObject("7").getJSONArray("sessions").getJSONObject(0).getDouble("weight"),0.0)
+        assertEquals(migrated.toString(),OfflineStore(context).snapshot().toString())
+    }
+    @Test fun poundsAreStoredWithoutRoundingAndBridgeStillReceivesCorrectKilograms() {
+        val (t,b)=training()
+        t.start("micro","left",50.123456789,1,0,0)
+        assertEquals(50.123456789,t.state.getJSONObject("active").getDouble("weightLbs"),0.0)
+        assertEquals(50.123456789*0.45359237,b.targetWeight.value!!,0.000001)
+        t.endRep();t.finish()
+        assertEquals(50.123456789,t.queue().single().getDouble("weightLbs"),0.0)
+        assertFalse(t.queue().single().has("weightKg"))
+    }
     @Test fun queueSurvivesRestartAndAcknowledgesOnlyTheMatchingSetOnce() {
         val store=OfflineStore(context)
         store.enqueue(record("a"));store.enqueue(record("b"));store.enqueue(record("a"))
@@ -45,7 +68,7 @@ class OfflineTrainingTest {
     @Test fun savedSetKeepsMeasuredDurationsAndOriginalAccount() {
         val (t,b)=training()
         t.accountSeen("7","Test")
-        t.start("crusher","left",2.0,2,0,0)
+        t.start("crusher","left",2.0/0.45359237,2,0,0)
         assertTrue(b.isFreshActive)
         assertEquals(2.0,b.targetWeight.value!!,0.0)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(12));t.endRep();if(t.phase=="complete")t.finish()
@@ -59,7 +82,7 @@ class OfflineTrainingTest {
     }
     @Test fun restartRecoversCompletedRepsWithoutInventingTimeForInterruptedRep() {
         val (t,_)=training()
-        t.start("micro","right",10.0,3,0,0)
+        t.start("micro","right",10.0/0.45359237,3,0,0)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(6));t.endRep();if(t.phase=="complete")t.finish()
         ShadowSystemClock.advanceBy(Duration.ofHours(1))
         val (restored,_)=training()
@@ -70,7 +93,7 @@ class OfflineTrainingTest {
         assertEquals("[6]",restored.queue().single().getJSONArray("reps").toString())
     }
     @Test fun websiteCannotOverwriteAnActiveOfflineRep() {
-        val (t,b)=training();t.start("prime","left",4.0,2,10,0)
+        val (t,b)=training();t.start("prime","left",4.0/0.45359237,2,10,0)
         b.onSnapshot("""{"phase":"setup","weight":"100 kg"}""")
         assertEquals(4.0,b.targetWeight.value!!,0.0)
         assertTrue(b.buttonEnabled.value)
@@ -83,12 +106,12 @@ class OfflineTrainingTest {
         val (t,_)=training()
         for(weight in listOf(0.0,-2.0,Double.NaN,Double.POSITIVE_INFINITY))t.start("crusher","left",weight,2,0,0)
         assertFalse(t.inProgress)
-        t.start("crusher","left",20.0,2,10,5);t.finish()
+        t.start("crusher","left",20.0/0.45359237,2,10,5);t.finish()
         assertEquals(0,t.pending)
         t.cancelEmpty();assertFalse(t.inProgress)
     }
     @Test fun unknownAccountRequiresExplicitAssignment() {
-        val (t,_)=training();t.start("crusher","left",20.0,1,0,0)
+        val (t,_)=training();t.start("crusher","left",20.0/0.45359237,1,0,0)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(3));t.endRep();if(t.phase=="complete")t.finish()
         assertEquals("",t.queue().single().getString("owner"))
         t.accountSeen("42","Test");assertTrue(t.needsAccount)
@@ -98,7 +121,7 @@ class OfflineTrainingTest {
         val file=File(context.filesDir,"offline-training.json");file.writeText("broken")
         val (t,_)=training()
         assertFalse(t.available);assertTrue(t.error.isNotEmpty())
-        t.start("crusher","left",20.0,1,0,0)
+        t.start("crusher","left",20.0/0.45359237,1,0,0)
         assertEquals("broken",file.readText())
     }
     @Test fun mutationFailureLeavesPreviousDurableStateUntouched() {
@@ -137,7 +160,7 @@ class OfflineTrainingTest {
         assertNull(t.curve("crusher","left"))
         t.accountSeen("7","First")
         assertNotNull(t.curve("crusher","left"))
-        t.start("crusher","left",25.0,5,10,0,101)
+        t.start("crusher","left",25.0/0.45359237,5,10,0,101)
         assertEquals(101,t.active!!.getInt("targetDuration"))
     }
     @Test fun idleTicksDoNotInvalidateUiAndActiveTicksKeepHeartbeatWithoutRedundantUiUpdates() {
@@ -145,7 +168,7 @@ class OfflineTrainingTest {
         val idle=t.revision.value
         repeat(50) { t.tick(android.os.SystemClock.elapsedRealtime()) }
         assertEquals(idle,t.revision.value)
-        t.start("crusher","left",20.0,5,10,0)
+        t.start("crusher","left",20.0/0.45359237,5,10,0)
         val initial=t.revision.value
         repeat(50) {
             ShadowSystemClock.advanceBy(Duration.ofMillis(100))
@@ -169,9 +192,9 @@ class OfflineTrainingTest {
     }
     @Test fun discardCompletedAndActiveRepsNeverQueuesAndSurvivesRestart() {
         val (t,b)=training()
-        t.start("crusher","left",20.0,1,0,0);t.endRep();if(t.phase=="complete")t.finish()
+        t.start("crusher","left",20.0/0.45359237,1,0,0);t.endRep();if(t.phase=="complete")t.finish()
         val savedId=t.queue().single().getString("id")
-        t.start("crusher","left",20.0,3,0,0)
+        t.start("crusher","left",20.0/0.45359237,3,0,0)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(4));t.endRep();if(t.phase=="complete")t.finish()
         t.discardSet();t.endRep();if(t.phase=="complete")t.finish()
         assertFalse(t.inProgress);assertFalse(b.isFreshActive)
@@ -182,7 +205,7 @@ class OfflineTrainingTest {
     }
     @Test fun targetCountdownCrossesZeroAndResetsForNextRep() {
         val (t,_)=training()
-        t.start("crusher","left",20.0,3,2,0,5)
+        t.start("crusher","left",20.0/0.45359237,3,2,0,5)
         assertEquals(5,t.targetRemaining)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(5));t.tick(android.os.SystemClock.elapsedRealtime())
         assertEquals(0,t.targetRemaining)
@@ -197,9 +220,9 @@ class OfflineTrainingTest {
     }
     @Test fun discardIsAvailableDuringCountdownRestAndRecovery() {
         val (t,_)=training()
-        t.start("crusher","left",20.0,3,10,20);t.discardSet()
+        t.start("crusher","left",20.0/0.45359237,3,10,20);t.discardSet()
         assertFalse(t.inProgress)
-        t.start("crusher","left",20.0,3,10,0);t.endRep();if(t.phase=="complete")t.finish()
+        t.start("crusher","left",20.0/0.45359237,3,10,0);t.endRep();if(t.phase=="complete")t.finish()
         assertEquals("rest",t.phase)
         val restored=training().first
         assertEquals("paused",restored.phase)
@@ -208,7 +231,7 @@ class OfflineTrainingTest {
     }
     @Test fun importedSetRemainsInHistoryAcrossRestartBeforeServerRefresh() {
         val (t,_)=training();t.accountSeen("7","Test")
-        t.start("crusher","left",20.0,1,0,0)
+        t.start("crusher","left",20.0/0.45359237,1,0,0)
         ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep();if(t.phase=="complete")t.finish()
         val before=t.history("crusher","left").single();assertTrue(before.pending)
         t.acknowledge(t.queue().single().getString("id"))
@@ -249,7 +272,7 @@ class OfflineTrainingTest {
 
     @Test fun pendingEditsAndDeletionPersistAndUploadingRowsAreProtected() {
         val (t,_)=training();t.accountSeen("7","Test")
-        t.start("prime","left",20.0,1,0,0);ShadowSystemClock.advanceBy(Duration.ofSeconds(20));t.endRep();if(t.phase=="complete")t.finish()
+        t.start("prime","left",20.0/0.45359237,1,0,0);ShadowSystemClock.advanceBy(Duration.ofSeconds(20));t.endRep();if(t.phase=="complete")t.finish()
         val row=t.queue().single();val id=row.getString("id");val date=row.getString("date_time")
         t.manageQueue(true);assertFalse(t.markUploading(id))
         assertFalse(t.updatePending(id,"prime","right",-1.0,listOf(30)))
@@ -263,7 +286,7 @@ class OfflineTrainingTest {
         assertFalse(restored.updatePending(id,"prime","left",20.0,listOf(10)))
         assertFalse(restored.deletePending(id))
         assertFalse(training().first.canEditPending(id))
-        restored.start("micro","left",10.0,1,0,0);restored.endRep();if(restored.phase=="complete")restored.finish()
+        restored.start("micro","left",10.0/0.45359237,1,0,0);restored.endRep();if(restored.phase=="complete")restored.finish()
         val other=restored.queue().last().getString("id")
         assertTrue(restored.deletePending(other))
         assertEquals(1,training().first.pending)
@@ -280,7 +303,7 @@ class OfflineTrainingTest {
     }
 
     @Test fun completedSetWaitsForExplicitSaveAndSurvivesRestart() {
-        val (t,_)=training();t.start("prime","left",20.0,1,0,0);t.endRep()
+        val (t,_)=training();t.start("prime","left",20.0/0.45359237,1,0,0);t.endRep()
         assertEquals("complete",t.phase);assertEquals(0,t.pending);assertTrue(t.inProgress)
         val restored=training().first
         assertEquals("complete",restored.phase);assertEquals(0,restored.pending)

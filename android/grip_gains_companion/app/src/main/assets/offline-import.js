@@ -44,7 +44,7 @@
     finally { curveLoading=false; }
   }
   const sameSession = (s, r) => new Date(s.date_time).getTime() === new Date(r.date_time).getTime()
-    && s.gripper === r.gripper && s.side === r.side && Math.abs(Number(s.weight) - r.weightKg / 0.45359237) < 0.011
+    && s.gripper === r.gripper && s.side === r.side && Math.abs(Number(s.weight) - r.weightLbs) < 0.011
     && JSON.stringify(s.rep_durations) === JSON.stringify(r.reps);
   async function submit(record) {
     if (running) return;
@@ -66,7 +66,7 @@
       const button = panel?.querySelector('button[type="submit"]');
       if (!input || !button || input.disabled) throw new Error('Waiting for Import training data.');
       const payload = JSON.stringify({date_time:record.date_time, gripper:record.gripper, side:record.side,
-        weight_lbs:record.weightKg/0.45359237, reps:record.reps});
+        weight_lbs:record.weightLbs, reps:record.reps});
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,payload);
       input.dispatchEvent(new Event('input',{bubbles:true}));
       input.dispatchEvent(new Event('change',{bubbles:true}));

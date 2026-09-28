@@ -14,7 +14,7 @@ import java.time.ZoneId
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk=[34], application=Application::class)
 class OfflineHistoryTest {
-    private fun local(owner: String="7")=JSONObject("""{"owner":"$owner","date_time":"2026-09-20T12:00:00Z","gripper":"crusher","side":"left","weightKg":20,"reps":[40,90,60],"pending":true}""")
+    private fun local(owner: String="7")=JSONObject("""{"owner":"$owner","date_time":"2026-09-20T12:00:00Z","gripper":"crusher","side":"left","weightLbs":44.09245243697551,"reps":[40,90,60],"pending":true}""")
     @Test fun zoneUsesLongestMeasuredRepAndDaysUseCalendarDates() {
         val set=OfflineHistorySet.parse(local(),true,true)!!
         assertEquals(90.0,set.hold,0.0);assertEquals(2,set.zone)

@@ -9,6 +9,7 @@ import org.json.JSONObject
 
 /** Called only from an origin-restricted, main-frame WebMessageListener on the UI thread. */
 class WebViewBridge {
+    val startupToken = java.util.UUID.randomUUID().toString()
     lateinit var offline: app.grip_gains_companion.service.offline.OfflineTraining
     var offlineEndRep: (() -> Unit)? = null
     private var acceptingOffline = false

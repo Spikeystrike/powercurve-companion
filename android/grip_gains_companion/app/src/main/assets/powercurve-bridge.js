@@ -7,7 +7,28 @@
   let previousPhase = '', generation = 0, lastEndedKey = null;
   const visible = el => !!el && el.getClientRects().length > 0;
   const text = el => el?.textContent?.trim() || '';
+  function applyStartupSelection() {
+    const token = window.PowercurveStartupToken;
+    if (!token) return;
+    try {
+      if (sessionStorage.getItem('powercurve.nativeStartup') === token) return;
+      const face = document.querySelector('.timerPanel .timerFace');
+      if (!face?.classList.contains('timerFace-setup')) return;
+      const fields = [...document.querySelectorAll('.timerSetupGrid label')];
+      const gripper = fields.find(el => text(el.querySelector('span')) === 'Gripper')?.querySelector('select');
+      const side = fields.find(el => text(el.querySelector('span')) === 'Side')?.querySelector('select');
+      if (!gripper || !side || gripper.disabled || side.disabled) return;
+      if (![...gripper.options].some(o => o.value === 'micro') || ![...side.options].some(o => o.value === 'left')) return;
+      sessionStorage.setItem('powercurve.nativeStartup', token);
+      const setValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+      for (const [input, value] of [[gripper, 'micro'], [side, 'left']]) {
+        setValue.call(input, value);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    } catch (_) { /* Leave the website usable if browser storage is unavailable. */ }
+  }
   function snapshot() {
+    applyStartupSelection();
     const face = document.querySelector('.timerPanel .timerFace');
     const phase = ['setup','countdown','rep','rest','complete'].find(p => face?.classList.contains('timerFace-' + p)) || 'unavailable';
     if (phase !== previousPhase) {

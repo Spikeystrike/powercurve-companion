@@ -12,6 +12,20 @@ import java.io.File
 class OfflineStore(context: Context) {
     private val file = File(context.filesDir, "offline-training.json")
     private var data = if (file.exists()) JSONObject(file.readText()) else JSONObject()
+    init {
+        if(data.optInt("schemaVersion")<2) update { state ->
+            fun migrate(row: JSONObject?) {
+                if(row==null || !row.has("weightKg")) return
+                if(!row.has("weightLbs")) row.put("weightLbs",row.getDouble("weightKg")/0.45359237)
+                row.remove("weightKg")
+            }
+            for(key in listOf("active","webActive","defaults")) migrate(state.optJSONObject(key))
+            for(key in listOf("queue","localHistory")) state.optJSONArray(key)?.let { rows ->
+                for(i in 0 until rows.length()) migrate(rows.getJSONObject(i))
+            }
+            state.put("schemaVersion",2)
+        }
+    }
     val queueSize: Int get() = data.optJSONArray("queue")?.length() ?: 0
     val syncedCount: Int get() = data.optInt("synced")
     val lastAccount: String get() = data.optString("lastAccount")

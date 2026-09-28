@@ -39,9 +39,13 @@ The offline graph shows the **last 60 sets per gripper and hand**, including loc
 
 The zone with the oldest last set is preselected. Untrained zones come first; ties follow Endurance-to-Power order. Locally saved sets are included, and manual edits are preserved during cache updates.
 
+The timer starts with **Micro / Left** selected. Recovered unfinished sets keep their original gripper and hand.
+
 Curves are stored per account, gripper and hand. Connect once to cache a fitted curve; unavailable zones need more training data. The saved timestamp is shown, and pending sets affect the curve after synchronization and online recalculation.
 
 Saved sets and completed reps survive app restarts. An interrupted set can be resumed; an unfinished rep is not counted.
+
+Offline weights are stored in lbs and passed directly to the backend import. Existing local kg records are migrated automatically without rounding. The selected display unit still controls input and display.
 
 When internet returns, sets are automatically added through **Import training data** while the app is running. If the app was closed, synchronization resumes the next time it opens.
 
@@ -99,3 +103,5 @@ Use **Review pending sets** in the waiting-to-sync banner to correct gripper, ha
 The local timer shows when history was checked. **Update now** requests a fresh online snapshot without interrupting an active import; connection or sign-in failures show a retry message. Curve taps require the same supporting training data as other recommendations and leave timer targets unchanged when evidence is insufficient.
 
 Bluetooth status distinguishes searching, waiting for readings and receiving readings. The receiving indicator expires after three seconds without samples; it does not imply a new measurement or change connection recovery.
+
+The force panel stays collapsed after you swipe it down or close it with its handle. Timer changes and returning readings from the same connection do not reopen it. The first reading from a new device connection can reopen the panel.

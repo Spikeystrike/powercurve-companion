@@ -51,11 +51,11 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         if(managingQueue) return false
         return save {state -> val rows=state.optJSONArray("queue") ?: JSONArray(); for(i in 0 until rows.length()) if(rows.getJSONObject(i).optString("id")==id) rows.getJSONObject(i).put("uploadStarted",true)}
     }
-    fun updatePending(id: String, gripper: String, side: String, kg: Double, durations: List<Int>): Boolean {
-        if(!canEditPending(id) || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !kg.isFinite() || kg<=0 || durations.isEmpty() || durations.size>100 || durations.any {it !in 1..3600}) return false
+    fun updatePending(id: String, gripper: String, side: String, lbs: Double, durations: List<Int>): Boolean {
+        if(!canEditPending(id) || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !lbs.isFinite() || lbs<=0 || durations.isEmpty() || durations.size>100 || durations.any {it !in 1..3600}) return false
         return save {state -> val rows=state.getJSONArray("queue");for(i in 0 until rows.length()) {
             val row=rows.getJSONObject(i)
-            if(row.optString("id")==id) row.put("gripper",gripper).put("side",side).put("weightKg",kg).put("reps",JSONArray(durations)).put("plannedReps",durations.size)
+            if(row.optString("id")==id) row.put("gripper",gripper).put("side",side).put("weightLbs",lbs).put("reps",JSONArray(durations)).put("plannedReps",durations.size)
         }}
     }
     fun deletePending(id: String): Boolean {
@@ -111,11 +111,11 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         val destination = store ?: return false
         destination.update(change); error=""; _revision.value++; true
     } catch (_: Exception) { error = "Could not save offline data. Free storage and try again; keep this set open."; false } }
-    fun start(gripper: String, side: String, weightKg: Double, reps: Int, rest: Int, countdown: Int, targetDuration: Int? = null) {
-        if ((targetDuration!=null && targetDuration !in 1..3600) || inProgress || !available || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !weightKg.isFinite() || weightKg <= 0 || reps !in 1..100 || rest !in 0..600 || countdown !in 0..60) return
+    fun start(gripper: String, side: String, weightLbs: Double, reps: Int, rest: Int, countdown: Int, targetDuration: Int? = null) {
+        if ((targetDuration!=null && targetDuration !in 1..3600) || inProgress || !available || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !weightLbs.isFinite() || weightLbs <= 0 || reps !in 1..100 || rest !in 0..600 || countdown !in 0..60) return
         if(store?.has("webActive") == true) { active=state.getJSONObject("webActive");phase="paused";open=true;publish();return }
         val record = JSONObject().put("id",UUID.randomUUID().toString()).put("owner",state.optString("lastAccount"))
-            .put("date_time",Instant.ofEpochMilli(System.currentTimeMillis()).toString()).put("gripper",gripper).put("side",side).put("weightKg",weightKg)
+            .put("date_time",Instant.ofEpochMilli(System.currentTimeMillis()).toString()).put("gripper",gripper).put("side",side).put("weightLbs",weightLbs)
             .put("targetDuration",targetDuration).put("plannedReps",reps).put("rest",rest).put("countdown",countdown).put("reps",JSONArray())
         if (!save { it.put("active",record).put("defaults",record) }) return
         active=record; seconds=countdown; open=true; phase=if(countdown>0) "countdown" else "rep"; phaseStart=SystemClock.elapsedRealtime()
@@ -134,7 +134,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         bridge.offlineEndRep=::endRep
         bridge.onOfflineSnapshot(JSONObject().put("phase",if(phase=="paused") "setup" else phase).put("active",phase=="rep")
             .put("targetDuration",record.optInt("targetDuration")).put("repKey",record.getString("id")+":"+record.getJSONArray("reps").length()).put("seconds",seconds)
-            .put("weight","${record.getDouble("weightKg")} kg").put("gripper",record.getString("gripper"))
+            .put("weight","${record.getDouble("weightLbs")} lbs").put("gripper",record.getString("gripper"))
             .put("side",record.getString("side")).put("url","offline://timer").toString())
     }
     fun endRep() {
@@ -224,7 +224,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         if(gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right")) return
         if(webRecord==null) webRecord=JSONObject().put("id",UUID.randomUUID().toString()).put("owner",state.optString("lastAccount"))
             .put("date_time",Instant.ofEpochMilli(System.currentTimeMillis()).toString()).put("gripper",gripper).put("side",side)
-            .put("weightKg",weight).put("plannedReps",snapshot.optInt("plannedReps",6).coerceIn(1,100)).put("rest",10).put("countdown",3).put("reps",JSONArray())
+            .put("weightLbs",weight/0.45359237).put("plannedReps",snapshot.optInt("plannedReps",6).coerceIn(1,100)).put("rest",10).put("countdown",3).put("reps",JSONArray())
         if(!online) webWasOffline=true
         val record=webRecord ?: return
         val reps=snapshot.optJSONArray("completedReps") ?: JSONArray()

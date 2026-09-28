@@ -74,3 +74,17 @@ test('completed website reps retain minutes and seconds for offline capture', ()
   const f=fixture();f.setPhase('complete');f.setCompleted(['1:02','0:07']);
   assert.deepEqual(Array.from(f.window.PowercurveCompanion.refresh().completedReps),[62,7]);
 });
+
+ test('startup selects Micro Left once per app session and waits for setup',()=>{
+  const f=fixture();const b=f.window.PowercurveCompanion;const values=new Map();
+  f.context.sessionStorage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+  class Select {constructor(value,options){this._value=value;this.options=options.map(value=>({value}));this.disabled=false;}get value(){return this._value}set value(v){this._value=v}dispatchEvent(){}}
+  f.context.HTMLSelectElement=Select;f.context.Event=class{};
+  const gripper=new Select('prime',['micro','crusher','prime']),side=new Select('right',['left','right']);
+  const original=f.context.document.querySelectorAll;
+  f.context.document.querySelectorAll=selector=>selector==='.timerSetupGrid label'?[['Gripper',gripper],['Side',side]].map(([name,input])=>({querySelector:s=>s==='span'?{textContent:name}:input})):original(selector);
+  f.window.PowercurveStartupToken='session-one';f.setPhase('rep');b.refresh();assert.equal(gripper.value,'prime');
+  f.setPhase('setup');b.refresh();assert.equal(gripper.value,'micro');assert.equal(side.value,'left');
+  gripper.value='crusher';side.value='right';b.refresh();assert.equal(gripper.value,'crusher');assert.equal(side.value,'right');
+  f.window.PowercurveStartupToken='session-two';b.refresh();assert.equal(gripper.value,'micro');assert.equal(side.value,'left');
+ });

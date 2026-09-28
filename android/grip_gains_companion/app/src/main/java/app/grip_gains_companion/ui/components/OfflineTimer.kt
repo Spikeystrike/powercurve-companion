@@ -42,10 +42,10 @@ fun OfflineStatus(training: OfflineTraining, useLbs: Boolean = false) {
 fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=Modifier) {
     val revision by training.revision.collectAsState()
     @Suppress("UNUSED_VARIABLE") val refresh=revision
-    val defaults=remember {training.state.optJSONObject("defaults")}
-    var gripper by rememberSaveable {mutableStateOf(defaults?.optString("gripper") ?: "crusher")}
-    var side by rememberSaveable {mutableStateOf(defaults?.optString("side") ?: "left")}
-    var weight by rememberSaveable {mutableStateOf(defaults?.optDouble("weightKg")?.let {displayNumber(if(useLbs) it/0.45359237 else it)} ?: "")}
+    val defaults=remember {training.state.optJSONObject("defaults")?.takeIf {it.optString("gripper")=="micro" && it.optString("side")=="left"}}
+    var gripper by rememberSaveable {mutableStateOf("micro")}
+    var side by rememberSaveable {mutableStateOf("left")}
+    var weight by rememberSaveable {mutableStateOf(defaults?.optDouble("weightLbs")?.let {displayNumber(if(useLbs) it else it*0.45359237)} ?: "")}
     var reps by rememberSaveable {mutableStateOf((defaults?.optInt("plannedReps") ?: 6).toString())}
     var rest by rememberSaveable {mutableStateOf((defaults?.optInt("rest") ?: 10).toString())}
     var countdown by rememberSaveable {mutableStateOf((defaults?.optInt("countdown") ?: 20).toString())}
@@ -57,7 +57,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             previousLbs=useLbs
         }
     }
-    val kg=weight.replace(',','.').toDoubleOrNull()?.let {if(useLbs)it*0.45359237 else it}
+    val lbs=weight.replace(',','.').toDoubleOrNull()?.let {if(useLbs)it else it/0.45359237}
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     Column(modifier.background(Color(0xFF1A2231)).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(if(training.online) "Local set timer" else "Offline set timer",style=MaterialTheme.typography.titleLarge)
@@ -95,11 +95,11 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
                 OutlinedTextField(rest,{rest=it},label={Text("Rest (0–600 s)")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(countdown,{countdown=it},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
             }
-            Button(onClick={training.start(gripper,side,kg!!,reps.toInt(),rest.toInt(),countdown.toInt(),targetTime.toIntOrNull())},enabled=(targetTime.isBlank() || targetTime.toIntOrNull() in 1..3600) && training.available && kg!=null && kg.isFinite() && kg>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
+            Button(onClick={training.start(gripper,side,lbs!!,reps.toInt(),rest.toInt(),countdown.toInt(),targetTime.toIntOrNull())},enabled=(targetTime.isBlank() || targetTime.toIntOrNull() in 1..3600) && training.available && lbs!=null && lbs.isFinite() && lbs>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
             if(training.online) TextButton(onClick=training::useWebsite){Text("Return to Powercurve")}
         } else {
             val done=active.getJSONArray("reps").length()
-            Text("${active.getString("gripper")} · ${active.getString("side")} · " + String.format(java.util.Locale.US,"%.1f %s",if(useLbs) active.getDouble("weightKg")/0.45359237 else active.getDouble("weightKg"),if(useLbs) "lb" else "kg"))
+            Text("${active.getString("gripper")} · ${active.getString("side")} · " + String.format(java.util.Locale.US,"%.1f %s",active.getDouble("weightLbs")*if(useLbs) 1.0 else 0.45359237,if(useLbs) "lb" else "kg"))
             Text("${training.phase.replaceFirstChar(Char::uppercase)} · ${training.seconds}s",style=MaterialTheme.typography.headlineLarge)
             if(active.optInt("targetDuration")>0) {
                 Text("Target hold: ${active.getInt("targetDuration")} s")

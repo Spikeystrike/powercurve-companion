@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -197,6 +198,9 @@ fun MainScreen(
     val level3Px = with(density) { (360.dp + navBarPadding).toPx() }
 
     val sheetHeightPx = remember { Animatable(if (isToolbarVisible) level1Px else 0f) }
+    var manuallyCollapsed by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val sampleConnection by bluetoothManager.sampleConnection.collectAsStateWithLifecycle()
+    var seenSampleConnection by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0L) }
     var dragMomentum by remember { mutableFloatStateOf(0f) }
     val currentLevel1Px by rememberUpdatedState(level1Px)
 
@@ -217,7 +221,7 @@ fun MainScreen(
     }
 
     LaunchedEffect(isToolbarVisible, showForceGraph, isLive, offlineTimer) {
-        if ((isLive || offlineTimer) && showForceGraph) {
+        if ((isLive || offlineTimer) && showForceGraph && !manuallyCollapsed) {
             sheetHeightPx.animateTo(level2Px, tween(200))
         } else if (!isToolbarVisible) {
             if (sheetHeightPx.value <= level1Px + 20f) {
@@ -225,6 +229,14 @@ fun MainScreen(
             }
         } else if (sheetHeightPx.value < level1Px || !showForceGraph) {
             sheetHeightPx.animateTo(level1Px, spring(dampingRatio = 0.7f, stiffness = 400f))
+        }
+    }
+
+    LaunchedEffect(sampleConnection,showForceGraph) {
+        if(sampleConnection>seenSampleConnection) {
+            seenSampleConnection=sampleConnection
+            manuallyCollapsed=false
+            if(showForceGraph) sheetHeightPx.animateTo(level2Px,tween(200))
         }
     }
 
@@ -251,6 +263,7 @@ fun MainScreen(
                             }
                         }
 
+                        manuallyCollapsed = dragMomentum > 0f || target == level1Px
                         val isOpening = target > current
 
                         launch {
@@ -295,7 +308,7 @@ fun MainScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(with(density) { sheetHeightPx.value.toDp() })
+                    .height(with(density) { sheetHeightPx.value.toDp() }).testTag("force-sheet")
                     .then(dragModifier),
                 shape = RoundedCornerShape(
                     topStart = if (showForceGraph) 28.dp else 0.dp,
@@ -323,6 +336,7 @@ fun MainScreen(
                                         coroutineScope.launch {
                                             val current = sheetHeightPx.value
                                             val target = if (current > level1Px + 10f) level1Px else level2Px
+                                            manuallyCollapsed = target == level1Px
                                             val isOpening = target > current
 
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -341,7 +355,7 @@ fun MainScreen(
                                             sheetHeightPx.animateTo(target, animSpec)
                                         }
                                     }
-                                    .padding(top = 10.dp, bottom = 6.dp),
+                                    .padding(top = 10.dp, bottom = 6.dp).testTag("force-sheet-handle"),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(

@@ -92,8 +92,12 @@ class BluetoothManager(private val context: Context) {
     private val sampleHandler = Handler(Looper.getMainLooper())
     private val _receivingSamples = MutableStateFlow(false)
     val receivingSamples = _receivingSamples.asStateFlow()
+    private var connectionHasSample = false
+    private val _sampleConnection = MutableStateFlow(0L)
+    val sampleConnection = _sampleConnection.asStateFlow()
     private val sampleExpired = Runnable { _receivingSamples.value=false }
     private fun reportSample(weight: Double, timestamp: Long) {
+        if(!connectionHasSample) {connectionHasSample=true;_sampleConnection.value=android.os.SystemClock.elapsedRealtimeNanos()}
         _receivingSamples.value=true
         sampleHandler.removeCallbacks(sampleExpired)
         sampleHandler.postDelayed(sampleExpired, 3000)
@@ -229,6 +233,7 @@ class BluetoothManager(private val context: Context) {
             val isWhc06Active = _connectedDeviceType.value == DeviceType.WEIHENG_WHC06 || pendingDevice?.type == DeviceType.WEIHENG_WHC06
             val isExpectedDevice = pendingDevice != null && deviceAddress == pendingDevice?.address
 
+            if(isWhc06Active && isExpectedDevice && _connectionState.value != ConnectionState.Connected) connectionHasSample=false
             if (isWhc06Active && isExpectedDevice && whc06Service?.processAdvertisement(result) == true) {
                 if (_connectionState.value == ConnectionState.Reconnecting || _connectionState.value == ConnectionState.Connecting) {
                     _connectionState.value = ConnectionState.Connected
@@ -391,6 +396,7 @@ class BluetoothManager(private val context: Context) {
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     retryCount = 0
+                    connectionHasSample=false
                     _connectionState.value = ConnectionState.Connected
                     _connectedDeviceName.value = gatt.device.name ?: pendingDevice?.type?.displayName ?: "Unknown"
                     _connectedDeviceAddress.value = gatt.device.address
