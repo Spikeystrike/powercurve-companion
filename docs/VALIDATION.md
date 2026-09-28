@@ -1,5 +1,14 @@
 # Validation
 
+## 0.1.18
+
+Local validation on 2026-09-28:
+
+- Optimized release APK built successfully (versionCode 20 / versionName 0.1.18), including release lintVital checks.
+- Fixed toolbar measurement: trailing actions reserve their width, the Bluetooth label uses the remaining space, and the target-weight text has a bounded width with ellipsis.
+- Installed the actual release APK in the Android emulator at 320 dp width (720 px / 360 dpi). Verified Settings, Open offline mode and History all have visible on-screen bounds; tapping Settings opened the settings screen.
+- This small layout change was checked with a targeted release UI smoke test. Physical-device and all active training-layout combinations remain unverified.
+
 ## 0.1.17
 
 Local validation on 2026-09-28:

@@ -359,10 +359,11 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // LEFT GROUP: Bluetooth Scale + Metronome
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Reserve the trailing actions before measuring the flexible device label.
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                                 val displayName = deviceAliasesState[connectedAddress] ?: connectedName ?: "No Scale"
                                 AssistChip(
+                                    modifier = Modifier.weight(1f),
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         if (runCatching { btAdapter?.isEnabled == true }.getOrDefault(false)) {
@@ -418,18 +419,19 @@ fun MainScreen(
                                 }
                             }
 
-                            // Spacer absorbs all remaining room, forcing the next Row to the far right
-                            Spacer(modifier = Modifier.weight(1f))
+                            Spacer(modifier = Modifier.width(4.dp))
 
                             // RIGHT GROUP: Manual Target & Settings
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
                                 AnimatedVisibility(visible = isBasicTimerPage || isRegularTimerPage) {
-                                    TextButton(onClick = {
+                                    TextButton(modifier = Modifier.widthIn(max = 88.dp), onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         onSetManualWeightTap()
                                     }) {
                                         val displayWeight = manualTargetWeight?.let { if (useLbs) it * 2.20462 else it }
                                         Text(
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                             text = if (displayWeight == null) "Target: —" else "${String.format(java.util.Locale.US, "%.1f", displayWeight)} ${if (useLbs) "lbs" else "kg"}",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
