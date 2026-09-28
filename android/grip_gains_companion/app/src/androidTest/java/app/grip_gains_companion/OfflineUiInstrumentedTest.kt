@@ -206,6 +206,12 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("20")
     }
 
+    private fun assertAbove(result: String, action: String) {
+        ui.onNodeWithText(action).performScrollTo()
+        val resultBounds=ui.onNodeWithText(result).getUnclippedBoundsInRoot()
+        val actionBounds=ui.onNodeWithText(action).getUnclippedBoundsInRoot()
+        assertTrue(resultBounds.bottom<=actionBounds.top)
+    }
     private fun hold(label:String, millis:Long=2300) {
         ui.onNodeWithText(label).performScrollTo()
         ui.mainClock.autoAdvance=false
@@ -218,6 +224,7 @@ class OfflineUiInstrumentedTest {
     @Test fun prematureSaveAndDiscardRequireHoldingAndCompletedSetUsesNormalSave() {
         ui.runOnUiThread {training.start("prime","left",20.0/0.45359237,2,60,0);training.endRep()}
         ui.onNodeWithText("Locked").assertIsNotEnabled()
+        assertAbove("Rep 1: 1 s","Hold to save set now")
         ui.onNodeWithText("Hold to save set now").performScrollTo().performTouchInput {click()}
         assertEquals(0,training.pending);assertTrue(training.inProgress)
         hold("Hold to save set now",600)
@@ -229,6 +236,7 @@ class OfflineUiInstrumentedTest {
         hold("Discard set without saving");assertFalse(training.inProgress);assertEquals(1,training.pending)
         ui.runOnUiThread {training.start("prime","left",20.0/0.45359237,1,0,0);training.endRep()}
         assertEquals(1,training.pending)
+        assertAbove("Rep 1: 1 s","Save set")
         ui.onNodeWithText("Save set").performScrollTo().performClick()
         assertEquals(2,training.pending)
     }
@@ -264,6 +272,7 @@ class OfflineUiInstrumentedTest {
         }
         ui.onNodeWithText("Rep 1: 22 kg · 2 s · set weight").performScrollTo().assertIsDisplayed()
         assertEquals(22.0,bridge.targetWeight.value!!,0.000001)
+        assertAbove("Rep 1: 22 kg · 2 s · set weight","Save set")
         ui.onNodeWithText("Save set").performScrollTo().performClick()
         assertEquals(22.0/0.45359237,training.queue().single().getDouble("weightLbs"),0.000001)
         ui.onNodeWithText("Rep 1: 22 kg · 2 s · set weight").performScrollTo().assertIsDisplayed()

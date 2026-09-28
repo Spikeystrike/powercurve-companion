@@ -124,6 +124,11 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
                 Text("Interrupted set recovered. Completed reps are safe; the interrupted rep was not counted.")
                 Button(onClick=training::resumeRecovered,enabled=!training.isRealForce || training.forceMeterConnected){Text("Continue set")}
             }
+            if(training.isRealForce) RealForceResults(training.realResults,training.resultMethod,useLbs)
+            else if(done>0) {
+                Text("Completed reps",style=MaterialTheme.typography.titleMedium)
+                for(index in 0 until done) Text("Rep "+(index+1)+": "+active.getJSONArray("reps").getInt(index)+" s")
+            }
             val complete=done>=active.getInt("plannedReps")
             val actionKey=active.getString("id")+":"+training.phase+":"+done
             if(complete) Button(onClick=training::finish,modifier=Modifier.fillMaxWidth()){Text("Save set")}
@@ -133,14 +138,19 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             if(!complete) HoldToConfirm("Hold to save set now",enabled=done>0 && training.phase !in listOf("rep","save_failed"),resetKey=actionKey,action=training::finish)
             HoldToConfirm("Discard set without saving",resetKey=actionKey,action=training::discardSet)
         }
-        if(training.realResults.isNotEmpty()) {
-            Text("Real Force results · "+training.resultMethod.replaceFirstChar(Char::uppercase),style=MaterialTheme.typography.titleMedium)
-            training.realResults.forEach {result ->
+        if(training.active==null) RealForceResults(training.realResults,training.resultMethod,useLbs)
+        if(training.error.isNotBlank()) Text(training.error,color=MaterialTheme.colorScheme.error)
+    }
+}
+}
+
+@Composable
+private fun RealForceResults(results: List<app.grip_gains_companion.service.offline.RealForceResult>, method: String, useLbs: Boolean) {
+        if(results.isNotEmpty()) {
+            Text("Real Force results · "+method.replaceFirstChar(Char::uppercase),style=MaterialTheme.typography.titleMedium)
+            results.forEach {result ->
                 Text("Rep "+result.rep+": "+displayNumber(result.pounds*(if(useLbs) 1.0 else 0.45359237))+" "+(if(useLbs) "lb" else "kg")+" · "+result.seconds+" s"+(if(result.rep==1) " · set weight" else " · display only"))
             }
             Text("Only rep 1's weight is saved/imported, together with every rep's duration. Later weights are shown here only and disappear when you start another set or close the app.",style=MaterialTheme.typography.bodySmall)
         }
-        if(training.error.isNotBlank()) Text(training.error,color=MaterialTheme.colorScheme.error)
-    }
-}
 }

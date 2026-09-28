@@ -13,8 +13,8 @@ android {
         applicationId = "com.tantaluspath.powercurve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 24
-        versionName = "0.1.22"
+        versionCode = 25
+        versionName = "0.1.23"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
