@@ -35,7 +35,7 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                 return uri.scheme == "https" && uri.host == "powercurve.tantaluspath.com" && (uri.port == -1 || uri.port == 443)
             }
             fun install(view: WebView?, url: String?) {
-                if (trusted(url) && supportsBridge) view?.evaluateJavascript("window.PowercurveStartupToken=" + org.json.JSONObject.quote(bridge.startupToken) + ";window.PowercurveRecommendationToken=" + org.json.JSONObject.quote(bridge.recommendationToken) + ";" + JavaScriptBridge.install(context), null)
+                if (trusted(url) && supportsBridge) view?.evaluateJavascript("window.PowercurveStartupToken=" + org.json.JSONObject.quote(bridge.startupToken) + ";window.PowercurveRecommendationToken=" + org.json.JSONObject.quote(bridge.recommendationToken) + ";window.PowercurveRealForce=" + bridge.realForceOptions() + ";" + JavaScriptBridge.install(context), null)
                 else if (!supportsBridge && !bridge.usingOfflineTarget) bridge.invalidate("Update Android System WebView to enable auto-end")
             }
             webViewClient = object : WebViewClient() {

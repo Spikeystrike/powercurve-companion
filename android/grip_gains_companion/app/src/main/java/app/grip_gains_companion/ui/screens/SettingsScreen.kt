@@ -62,6 +62,8 @@ fun SettingsScreen(
     onViewLogs: () -> Unit,
     onViewHistory: () -> Unit
 ) {
+    val realForceEnabled by preferencesRepository.realForceEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val realForceMethod by preferencesRepository.realForceMethod.collectAsStateWithLifecycle(initialValue = "median")
     val whc06FallbackLbs by preferencesRepository.whc06FallbackLbs.collectAsStateWithLifecycle(initialValue = false)
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -330,6 +332,20 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        Text("Real Force",modifier=Modifier.weight(1f))
+                        Switch(checked=realForceEnabled,onCheckedChange={coroutineScope.launch {preferencesRepository.setRealForceEnabled(it)}})
+                    }
+                    Text("Measure the actual force of a set using a connected force meter. Adds Start real force set below the normal start button.",style=MaterialTheme.typography.bodySmall)
+                    if(realForceEnabled) {
+                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            listOf("median","average").forEach {method ->
+                                FilterChip(selected=realForceMethod==method,onClick={coroutineScope.launch {preferencesRepository.setRealForceMethod(method)}},label={Text(method.replaceFirstChar(Char::uppercase))})
+                            }
+                        }
+                        Text("Median uses the middle reading and reduces the effect of spikes. Average uses the arithmetic mean of all readings. Timing runs from 90% of target until the confirmed force drop. Final release readings below the drop limit are excluded from the weight statistic. The first rep sets the saved weight and all later targets. Later rep weights are shown only in this set's results, not stored or imported.",style=MaterialTheme.typography.bodySmall)
+                        Text("No countdown: pull when ready. Rest still runs between reps, followed by a Pull cue. Real Force always uses the force-drop settings below. A lost signal or leaving the app pauses measurement; the unfinished rep is not counted.",style=MaterialTheme.typography.bodySmall)
+                    }
                     Text("Advanced", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
 
                     Column {
@@ -337,7 +353,7 @@ fun SettingsScreen(
                             Text("End rep on force drop", modifier = Modifier.weight(1f))
                             Switch(checked = autoFailRep, onCheckedChange = { coroutineScope.launch { preferencesRepository.setAutoFailRep(it) } })
                         }
-                        if (autoFailRep) {
+                        if (autoFailRep || realForceEnabled) {
                             Text("Arms after 300 ms at or above 90% of Target Weight. Ends the rep on a sustained drop below the target-based limit. A valid Target Weight and an active, visible rep are required.", style = MaterialTheme.typography.bodySmall)
                             Text("Drop from Target Weight: ${(failThreshold * 100).roundToInt()} %")
                             Slider(value = failThreshold.toFloat().coerceIn(0.1f, 0.8f), onValueChange = {

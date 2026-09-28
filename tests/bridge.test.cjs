@@ -102,3 +102,26 @@ test('recommended target is selected on entry and return, without overriding lat
  f.setWeight('');f.window.PowercurveRecommendationToken='empty-return';assert.equal(b.refresh().weight,'42 lb');assert.equal(clicks,2);
  f.setPhase('rep');f.window.PowercurveRecommendationToken='busy';b.refresh();assert.equal(clicks,2);
 });
+
+test('real force button is opt-in, disabled without meter, and sends current setup without starting website timer',()=>{
+ const f=fixture(), b=f.window.PowercurveCompanion;let panel=null;
+ class Element {
+  constructor(tag){this.tag=tag;this.style={};this.children=[];this.disabled=false;this.textContent='';this.listeners={};}
+  append(...children){this.children.push(...children)}
+  querySelector(tag){return this.children.find(c=>c.tag===tag)}
+  addEventListener(name,fn){this.listeners[name]=fn}
+  remove(){panel=null}
+ }
+ f.context.document.getElementById=()=>panel;
+ f.context.document.createElement=tag=>new Element(tag);
+ f.button.after=value=>panel=value;
+ const original=f.context.document.querySelectorAll;
+ const fields={Gripper:'micro',Side:'right',Reps:'4',Rest:'17'};
+ f.context.document.querySelectorAll=s=>s==='.timerSetupGrid label, .timerAdvancedGrid label'?Object.entries(fields).map(([key,value])=>({querySelector:q=>q==='span'?{textContent:key}:{value}})):original(s);
+ f.window.PowercurveRealForce={enabled:false,connected:false,method:'median'};b.refresh();assert.equal(panel,null);
+ f.window.PowercurveRealForce.enabled=true;b.refresh();assert.ok(panel);assert.equal(panel.querySelector('button').disabled,true);
+ const first=panel;f.window.PowercurveRealForce.connected=true;b.refresh();assert.equal(panel,first);assert.equal(panel.querySelector('button').disabled,false);
+ panel.querySelector('button').listeners.click();const action=f.messages.at(-1);
+ assert.equal(action.action,'startRealForce');assert.equal(action.gripper,'micro');assert.equal(action.side,'right');assert.equal(action.plannedReps,4);assert.equal(action.restSeconds,17);assert.equal(action.weight,'20 kg');assert.equal(f.clicks,0);
+ f.setPhase('rep');b.refresh();assert.equal(panel,null);
+});

@@ -107,3 +107,16 @@ Bluetooth status distinguishes searching, waiting for readings and receiving rea
 The force panel stays collapsed after you swipe it down or close it with its handle. Timer changes and returning readings from the same connection do not reopen it. The first reading from a new device connection can reopen the panel.
 
 The target follows the active timer. Online setup uses the selected weight, or the recommended zone when no weight has been selected. Returning from local mode preserves the online selection and uses the recommendation if the online weight is empty. Local mode uses the selected zone immediately, before starting a set, and updates the target when you select another zone, tap the curve or enter a weight. Hidden website updates cannot replace a local target.
+
+### Real Force (optional)
+
+Enable **Real Force** in Settings and select **Median** or **Average**. Median uses the middle force reading and is less sensitive to spikes; Average uses the arithmetic mean. **Start real force set** appears below the normal start button in online and local setup and is disabled until a force meter connects. It uses the same gripper, hand, weight, reps, rest and target hold, but skips the countdown.
+
+- **Pull when ready:** timing begins on the first reading at or above 90% of target.
+- A rep ends using your force-drop percentage and confirmation time. The detector still needs 300 ms of stable load to arm. Real Force uses this detection even when automatic ending for normal sets is disabled.
+- The statistic uses calibrated force readings starting at the threshold crossing. The final release readings at or below the drop limit are excluded, so letting go during the confirmation time does not lower the training weight. Timing still ends at the confirmed drop. No readings are invented during gaps.
+- Rep 1 sets the saved weight and the target for all subsequent reps. Between reps, the normal rest timer runs; a tone and **Pull when ready** cue follow. Timing starts only when the threshold is reached again.
+- Results show each rep's measured weight and duration. Only the first weight and all completed durations are saved and imported. Later weights stay in memory for the result display and disappear on the next set or app restart.
+- A lost connection, a reading gap longer than 1.5 seconds, or leaving the app during a rep pauses measurement and excludes the unfinished rep. Completed reps remain recoverable. Reconnect and choose **Continue set** to pull again.
+
+Real Force sets run in the local timer even when started online. Use **Save set** after all reps, or the existing hold-to-save/hold-to-discard actions. Saved sets use the normal automatic import queue.

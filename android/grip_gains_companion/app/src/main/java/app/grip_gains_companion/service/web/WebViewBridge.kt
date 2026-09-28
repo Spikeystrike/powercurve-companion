@@ -65,6 +65,8 @@ class WebViewBridge {
     private val _status = MutableStateFlow("Loading Powercurve…")
     val status = _status.asStateFlow()
 
+    fun realForceOptions(): String = if(::offline.isInitialized) JSONObject().put("enabled",offline.realForceEnabled).put("connected",offline.forceMeterConnected).put("method",offline.realForceMethod).toString() else "{}"
+    fun updateRealForceOptions() {webView?.evaluateJavascript("window.PowercurveRealForce="+realForceOptions()+";window.PowercurveCompanion?.refresh();",null)}
     fun setWebView(view: WebView) { webView = view }
     fun updateHistoryState(back: Boolean, forward: Boolean) { _canGoBack.value = back; _canGoForward.value = forward }
     fun setToolbarVisible(visible: Boolean) { _isToolbarVisible.value = visible }
@@ -89,6 +91,14 @@ class WebViewBridge {
         if ((usingOfflineTarget || offlineEndRep != null) && !acceptingOffline) return
         if (raw.length > 8192) return
         val data = runCatching { JSONObject(raw) }.getOrNull() ?: return
+        if(data.optString("action")=="startRealForce") {
+            if(!usingOfflineTarget && ::offline.isInitialized && data.optString("phase")=="setup") {
+                val kg=parseWeight(data.optString("weight")) ?: return
+                offline.startRealForce(data.optString("gripper").lowercase(),data.optString("side").lowercase(),kg/0.45359237,
+                    data.optInt("plannedReps",-1),data.optInt("restSeconds",-1),data.optInt("targetDuration",-1).takeIf {it>0})
+            }
+            return
+        }
         val next = data.optString("phase")
         if (next !in setOf("setup", "countdown", "rep", "rest", "complete", "unavailable")) return
         heartbeat = SystemClock.elapsedRealtime()

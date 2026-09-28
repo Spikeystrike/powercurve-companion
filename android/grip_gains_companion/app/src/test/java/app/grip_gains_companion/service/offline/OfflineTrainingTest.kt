@@ -309,4 +309,62 @@ class OfflineTrainingTest {
         assertEquals("complete",restored.phase);assertEquals(0,restored.pending)
         restored.finish();assertEquals(1,restored.pending);assertFalse(restored.inProgress)
     }
+
+    private fun realRep(t: OfflineTraining, kg: Double) {
+        repeat(20) {t.forceSample(kg,android.os.SystemClock.elapsedRealtime());ShadowSystemClock.advanceBy(Duration.ofMillis(100))}
+        repeat(5) {t.forceSample(0.0,android.os.SystemClock.elapsedRealtime());ShadowSystemClock.advanceBy(Duration.ofMillis(100))}
+    }
+    @Test fun realForceRequiresOptInAndConnectedMeter() {
+        val (t,_)=training()
+        t.startRealForce("micro","left",50.0,2,3,null);assertFalse(t.inProgress)
+        t.configureRealForce(true,"median",false,0.5,250)
+        t.startRealForce("micro","left",50.0,2,3,null);assertFalse(t.inProgress)
+    }
+    @Test fun realForceWaitsForPullAndKeepsFirstRepWeightForRestAndImport() {
+        val (t,b)=training();var cues=0;t.onPullCue={cues++}
+        t.configureRealForce(true,"median",true,0.5,250)
+        t.startRealForce("micro","left",20.0/0.45359237,2,2,60)
+        assertEquals("ready",t.phase);assertFalse(b.isFreshActive)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(30));t.tick(android.os.SystemClock.elapsedRealtime())
+        assertEquals("ready",t.phase);assertEquals(0,t.seconds)
+        realRep(t,22.0)
+        assertEquals("rest",t.phase);assertEquals(1,t.active!!.getJSONArray("reps").length())
+        assertEquals(22.0,b.targetWeight.value!!,0.00001)
+        val first=t.active!!.getDouble("weightLbs")
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(2));t.tick(android.os.SystemClock.elapsedRealtime())
+        assertEquals("ready",t.phase);assertEquals(1,cues)
+        t.forceSample(19.0,android.os.SystemClock.elapsedRealtime());assertEquals("ready",t.phase)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(100));realRep(t,26.0)
+        assertEquals("complete",t.phase);assertEquals(first,t.active!!.getDouble("weightLbs"),0.0)
+        assertEquals(26.0,t.realResults.last().pounds*0.45359237,0.00001)
+        t.finish()
+        val saved=t.queue().single()
+        assertEquals(first,saved.getDouble("weightLbs"),0.0)
+        assertEquals("[2,2]",saved.getJSONArray("reps").toString())
+        assertFalse(saved.has("realResults"));assertFalse(saved.has("readings"))
+        assertFalse(File(context.filesDir,"offline-training.json").readText().contains(t.realResults.last().pounds.toString()))
+    }
+    @Test fun realForceSignalLossNeverCountsAnUnmeasuredRepAndRecoveryKeepsFirstWeight() {
+        val (t,_)=training();t.configureRealForce(true,"median",true,0.5,250)
+        t.startRealForce("micro","left",40.0,2,0,null)
+        realRep(t,20.0);val weight=t.active!!.getDouble("weightLbs")
+        t.forceSample(20.0,android.os.SystemClock.elapsedRealtime());assertEquals("rep",t.phase)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(2));t.tick(android.os.SystemClock.elapsedRealtime())
+        assertEquals("paused",t.phase);assertEquals(1,t.active!!.getJSONArray("reps").length())
+        val (restored,_)=training();restored.configureRealForce(true,"average",true,0.5,250)
+        assertEquals("paused",restored.phase);assertEquals(weight,restored.active!!.getDouble("weightLbs"),0.0)
+        assertEquals("median",restored.active!!.getString("realMethod"))
+        restored.resumeRecovered();assertEquals("ready",restored.phase)
+        assertTrue(restored.realResults.isEmpty())
+    }
+    @Test fun onlineRealForceUsesWebsiteSettingsAndIgnoresDuplicateStartRequests() {
+        val (t,b)=training();t.configureRealForce(true,"average",true,0.4,300)
+        val request=JSONObject().put("action","startRealForce").put("phase","setup").put("weight","50 lb")
+            .put("gripper","micro").put("side","right").put("plannedReps",4).put("restSeconds",17).put("targetDuration",90)
+        b.onSnapshot(request.toString())
+        val id=t.active!!.getString("id")
+        assertEquals("ready",t.phase);assertEquals(50.0,t.active!!.getDouble("weightLbs"),0.000001)
+        assertEquals(17,t.active!!.getInt("rest"));assertEquals(4,t.active!!.getInt("plannedReps"));assertEquals(0,t.active!!.getInt("countdown"))
+        b.onSnapshot(request.toString());assertEquals(id,t.active!!.getString("id"))
+    }
 }

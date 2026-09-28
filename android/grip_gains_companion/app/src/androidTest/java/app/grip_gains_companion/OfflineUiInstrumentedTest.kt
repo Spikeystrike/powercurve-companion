@@ -244,4 +244,28 @@ class OfflineUiInstrumentedTest {
         assertEquals(50.123,training.queue().single().getDouble("weightLbs"),0.000001)
         ui.onNodeWithText("Done").performClick()
     }
+
+    @Test fun realForceIsOptInRequiresMeterAndDisplaysMeasuredResult() {
+        ui.onNodeWithText("Start real force set").assertDoesNotExist()
+        ui.runOnUiThread {training.configureRealForce(true,"median",false,0.5,250)}
+        ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().performTextReplacement("1")
+        ui.onNodeWithText("Start real force set").performScrollTo().assertIsNotEnabled()
+        ui.runOnUiThread {training.configureRealForce(true,"median",true,0.5,250)}
+        ui.onNodeWithText("Start real force set").performScrollTo().assertIsEnabled().performClick()
+        ui.onNodeWithText("Pull when ready").performScrollTo().assertIsDisplayed()
+        assertEquals(0,training.active!!.getInt("countdown"))
+        ui.runOnUiThread {
+            val base=android.os.SystemClock.elapsedRealtime()
+            training.forceSample(17.0,base)
+            assertEquals("ready",training.phase)
+            repeat(20) {training.forceSample(22.0,base+100L+it*100)}
+            repeat(5) {training.forceSample(0.0,base+2100L+it*100)}
+        }
+        ui.onNodeWithText("Rep 1: 22 kg · 2 s · set weight").performScrollTo().assertIsDisplayed()
+        assertEquals(22.0,bridge.targetWeight.value!!,0.000001)
+        ui.onNodeWithText("Save set").performScrollTo().performClick()
+        assertEquals(22.0/0.45359237,training.queue().single().getDouble("weightLbs"),0.000001)
+        ui.onNodeWithText("Rep 1: 22 kg · 2 s · set weight").performScrollTo().assertIsDisplayed()
+    }
 }

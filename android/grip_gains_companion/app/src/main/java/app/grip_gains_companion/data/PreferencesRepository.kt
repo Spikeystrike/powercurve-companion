@@ -44,6 +44,8 @@ class PreferencesRepository(private val context: Context) {
         val MANUAL_TARGET_WEIGHT = doublePreferencesKey("manual_target_weight")
         val WEIGHT_TOLERANCE = doublePreferencesKey("weight_tolerance")
 
+        val REAL_FORCE_ENABLED = booleanPreferencesKey("real_force_enabled")
+        val REAL_FORCE_METHOD = stringPreferencesKey("real_force_method")
         val AUTO_FAIL_REP = booleanPreferencesKey("auto_fail_rep")
         val FAIL_THRESHOLD = doublePreferencesKey("force_drop_fraction")
         val FORCE_DROP_HOLD_MS = intPreferencesKey("force_drop_hold_ms")
@@ -88,6 +90,11 @@ class PreferencesRepository(private val context: Context) {
 
         val DEVICE_ALIASES = stringPreferencesKey("device_aliases")
     }
+
+    val realForceEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.REAL_FORCE_ENABLED] ?: false }
+    suspend fun setRealForceEnabled(value: Boolean) = dataStore.edit { it[Keys.REAL_FORCE_ENABLED]=value }
+    val realForceMethod: Flow<String> = dataStore.data.map { if(it[Keys.REAL_FORCE_METHOD]=="average") "average" else "median" }
+    suspend fun setRealForceMethod(value: String) = dataStore.edit { it[Keys.REAL_FORCE_METHOD]=if(value=="average") "average" else "median" }
 
     val whc06FallbackLbs: Flow<Boolean> = dataStore.data.map { it[Keys.WHC06_FALLBACK_LBS] ?: false }
     suspend fun setWhc06FallbackLbs(value: Boolean) = dataStore.edit { it[Keys.WHC06_FALLBACK_LBS] = value }

@@ -99,11 +99,22 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
                 OutlinedTextField(countdown,{countdown=it},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
             }
             Button(onClick={training.start(gripper,side,lbs!!,reps.toInt(),rest.toInt(),countdown.toInt(),targetTime.toIntOrNull())},enabled=(targetTime.isBlank() || targetTime.toIntOrNull() in 1..3600) && training.available && lbs!=null && lbs.isFinite() && lbs>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
+            if(training.realForceEnabled) {
+                Button(onClick={training.startRealForce(gripper,side,lbs!!,reps.toInt(),rest.toInt(),targetTime.toIntOrNull())},
+                    enabled=training.forceMeterConnected && training.available && lbs!=null && lbs.isFinite() && lbs>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && (targetTime.isBlank() || targetTime.toIntOrNull() in 1..3600),modifier=Modifier.fillMaxWidth()) {Text("Start real force set")}
+                Text(if(!training.forceMeterConnected) "Connect a force meter to use Real Force." else "No countdown: pull when ready. Starts at 90% of target and ends on force drop. Rep 1's "+training.realForceMethod+" becomes the saved weight and the target for all later reps.",style=MaterialTheme.typography.bodySmall)
+            }
             if(training.online) TextButton(onClick=training::useWebsite){Text("Return to Powercurve")}
         } else {
             val done=active.getJSONArray("reps").length()
             Text("${active.getString("gripper")} · ${active.getString("side")} · " + String.format(java.util.Locale.US,"%.1f %s",active.getDouble("weightLbs")*if(useLbs) 1.0 else 0.45359237,if(useLbs) "lb" else "kg"))
-            Text("${training.phase.replaceFirstChar(Char::uppercase)} · ${training.seconds}s",style=MaterialTheme.typography.headlineLarge)
+            Text(if(training.phase=="ready") "Pull when ready" else "${training.phase.replaceFirstChar(Char::uppercase)} · ${training.seconds}s",style=MaterialTheme.typography.headlineLarge)
+            if(training.isRealForce) {
+                Text("Real Force · "+active.optString("realMethod").replaceFirstChar(Char::uppercase))
+                if(training.phase=="ready") Text("Reach "+displayNumber(active.getDouble("weightLbs")*0.9*(if(useLbs) 1.0 else 0.45359237))+" "+(if(useLbs) "lb" else "kg")+" to start timing.")
+                if(training.realMessage.isNotBlank()) Text(training.realMessage)
+                if(training.phase=="save_failed") Button(onClick=training::retryMeasuredRep) {Text("Retry saving measured rep")}
+            }
             if(active.optInt("targetDuration")>0) {
                 Text("Target hold: ${active.getInt("targetDuration")} s")
                 if(training.phase=="rep" && done==0) Text("Target countdown: ${training.targetRemaining} s",style=MaterialTheme.typography.headlineMedium)
@@ -111,15 +122,23 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             Text("$done / ${active.getInt("plannedReps")} reps completed")
             if(training.phase=="paused") {
                 Text("Interrupted set recovered. Completed reps are safe; the interrupted rep was not counted.")
-                Button(onClick=training::resumeRecovered){Text("Continue set")}
+                Button(onClick=training::resumeRecovered,enabled=!training.isRealForce || training.forceMeterConnected){Text("Continue set")}
             }
             val complete=done>=active.getInt("plannedReps")
             val actionKey=active.getString("id")+":"+training.phase+":"+done
             if(complete) Button(onClick=training::finish,modifier=Modifier.fillMaxWidth()){Text("Save set")}
+            else if(training.phase=="rep" && training.isRealForce) Button(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()){Text("Measuring force")}
             else if(training.phase=="rep") Button(onClick=training::endRep,modifier=Modifier.fillMaxWidth()){Text("End rep")}
             else Button(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()){Text("Locked")}
-            if(!complete) HoldToConfirm("Hold to save set now",enabled=done>0 && training.phase!="rep",resetKey=actionKey,action=training::finish)
+            if(!complete) HoldToConfirm("Hold to save set now",enabled=done>0 && training.phase !in listOf("rep","save_failed"),resetKey=actionKey,action=training::finish)
             HoldToConfirm("Discard set without saving",resetKey=actionKey,action=training::discardSet)
+        }
+        if(training.realResults.isNotEmpty()) {
+            Text("Real Force results · "+training.resultMethod.replaceFirstChar(Char::uppercase),style=MaterialTheme.typography.titleMedium)
+            training.realResults.forEach {result ->
+                Text("Rep "+result.rep+": "+displayNumber(result.pounds*(if(useLbs) 1.0 else 0.45359237))+" "+(if(useLbs) "lb" else "kg")+" · "+result.seconds+" s"+(if(result.rep==1) " · set weight" else " · display only"))
+            }
+            Text("Only rep 1's weight is saved/imported, together with every rep's duration. Later weights are shown here only and disappear when you start another set or close the app.",style=MaterialTheme.typography.bodySmall)
         }
         if(training.error.isNotBlank()) Text(training.error,color=MaterialTheme.colorScheme.error)
     }

@@ -139,6 +139,7 @@ class MainActivity : ComponentActivity() {
         progressorHandler = ProgressorHandler()
         webViewBridge = WebViewBridge()
         webViewBridge.offline = app.grip_gains_companion.service.offline.OfflineTraining(this, webViewBridge, lifecycleScope)
+        webViewBridge.offline.onPullCue = { if(trainingVisible) app.grip_gains_companion.util.ToneGenerator.playHighTone() }
         preferencesRepository = PreferencesRepository(this)
         hapticManager = HapticManager(this)
 
@@ -150,6 +151,11 @@ class MainActivity : ComponentActivity() {
                 progressorHandler.processSample(force, timestamp)
                 val measuredKg = progressorHandler.currentForce.value
                 if (isoSessionManager.isRepActive) isoSessionManager.addSample(measuredKg)
+                if(webViewBridge.offline.isRealForce) {
+                    forceDropDetector.reset()
+                    if(trainingVisible && !progressorHandler.calibrating) webViewBridge.offline.forceSample(measuredKg,android.os.SystemClock.elapsedRealtime())
+                    return@launch
+                }
                 val active = trainingVisible && autoEndEnabled && webViewBridge.isFreshActive &&
                     bluetoothManager.connectionState.value == ConnectionState.Connected && !progressorHandler.calibrating
                 if (forceDropDetector.sample(measuredKg, android.os.SystemClock.elapsedRealtime(),
@@ -582,6 +588,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupEventHandlers() {
+        lifecycleScope.launch {
+            kotlinx.coroutines.flow.combine(preferencesRepository.realForceEnabled,preferencesRepository.realForceMethod,bluetoothManager.connectionState,
+                preferencesRepository.failThreshold,preferencesRepository.forceDropHoldMs) { enabled,method,connection,drop,hold ->
+                webViewBridge.offline.configureRealForce(enabled,method,connection==ConnectionState.Connected,drop,hold.toLong())
+            }.collect {}
+        }
         lifecycleScope.launch { preferencesRepository.autoFailRep.collect { autoEndEnabled = it; forceDropDetector.reset() } }
         lifecycleScope.launch { preferencesRepository.failThreshold.collect { forceDropFraction = it; forceDropDetector.reset() } }
         lifecycleScope.launch { preferencesRepository.forceDropHoldMs.collect { forceDropHoldMs = it.toLong(); forceDropDetector.reset() } }
@@ -708,7 +720,7 @@ class MainActivity : ComponentActivity() {
         interactionFrameRate.reset()
         trainingVisible = false
         forceDropDetector.reset()
-        if (::webViewBridge.isInitialized) webViewBridge.invalidate("Auto-end paused")
+        if (::webViewBridge.isInitialized) {webViewBridge.offline.pauseRealForce("App paused. The unfinished rep was not counted.");webViewBridge.invalidate("Auto-end paused")}
         super.onPause()
     }
 

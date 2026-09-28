@@ -47,6 +47,39 @@
       button.click();
     } catch (_) { /* Wait for a usable recommendation without blocking the page. */ }
   }
+  function setupFields() {
+    const values = {};
+    document.querySelectorAll('.timerSetupGrid label, .timerAdvancedGrid label').forEach(el => {
+      const input = el.querySelector('input, select');
+      if (input) values[text(el.querySelector('span'))] = input.value;
+    });
+    return values;
+  }
+  function syncRealForceButton(s) {
+    const config = window.PowercurveRealForce;
+    // Older fixtures and unsupported pages do not expose a setup button.
+    if (!config) return;
+    let panel = document.getElementById('powercurve-real-force');
+    const start = document.querySelector('.timerPanel .timerMainButton');
+    if (!config.enabled || s.phase !== 'setup' || !start) {panel?.remove();return;}
+    if (!panel) {
+      panel = document.createElement('div');panel.id='powercurve-real-force';
+      const button = document.createElement('button');button.type='button';button.className='commandButton';
+      button.textContent='Start real force set';button.style.cssText='width:100%;margin-top:8px';
+      button.addEventListener('click', () => {
+        const latest=snapshot(), options=window.PowercurveRealForce;
+        if(!document.hidden && options?.enabled && options.connected && latest.phase==='setup' && latest.weight)
+          window.PowercurveNative?.postMessage(JSON.stringify({...latest,action:'startRealForce'}));
+      });
+      const help = document.createElement('small');help.style.cssText='display:block;margin-top:6px';
+      panel.append(button,help);start.after(panel);
+    }
+    const button=panel.querySelector('button');
+    const disabled=!config.connected || start.disabled || !s.weight || !s.gripper || !s.side || !(s.plannedReps>=1 && s.plannedReps<=100) || !(s.restSeconds>=0 && s.restSeconds<=600);
+    if(button.disabled!==disabled) button.disabled=disabled;
+    const description=config.connected ? 'Pull when ready. Starts at 90% of target; ends on force drop. '+(config.method==='average'?'Average':'Median')+' of rep 1 is saved as the set weight. Later rep weights are results only.' : 'Connect a force meter to start a Real Force set.';
+    const help=panel.querySelector('small');if(help.textContent!==description) help.textContent=description;
+  }
   function snapshot() {
     applyStartupSelection();
     applyRecommendedTarget();
@@ -73,22 +106,26 @@
         if (unit && /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) && Number(value) > 0) weight = Number(value) + ' ' + unit;
       }
     }
+    const setup = phase === 'setup' ? setupFields() : {};
+    const estimatedHold = phase === 'setup' ? text(document.querySelector('.timerEstimatedHold strong')) : fields['Estimated hold'] || '';
     const seconds = Number(text(face?.querySelector('strong')));
     return {
       phase, active, repKey: generation + ':' + text(face?.querySelector('p')),
       seconds: Number.isFinite(seconds) ? seconds : null,
-      weight, gripper: fields.Gripper || null, side: fields.Side || null,
-      plannedReps: Number(fields['Target reps']) || 6,
+      weight, gripper: setup.Gripper || fields.Gripper || null, side: setup.Side || fields.Side || null,
+      plannedReps: phase === 'setup' ? Number(setup.Reps) : Number(fields['Target reps']) || 6,
+      restSeconds: setup.Rest === undefined || setup.Rest.trim() === '' ? null : Number(setup.Rest),
       completedReps: Array.from(document.querySelectorAll('.timerRepList strong')).map(el => {
         const m = /^(\d+):(\d{2})$/.exec(text(el));
         return m ? Number(m[1])*60+Number(m[2]) : 0;
       }),
-      targetDuration: /^\d+s$/.test(fields['Estimated hold'] || '') ? parseInt(fields['Estimated hold'], 10) : null,
+      targetDuration: /^\d+s$/.test(estimatedHold) ? parseInt(estimatedHold, 10) : null,
       url: location.origin + location.pathname
     };
   }
   function refresh() {
     const s = snapshot();
+    syncRealForceButton(s);
     window.PowercurveNative?.postMessage(JSON.stringify(s));
     return s;
   }

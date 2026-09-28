@@ -34,6 +34,43 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     private var webRecord: JSONObject? = null
     private var webWasOffline = false
     private var webSaved = false
+    var realForceEnabled by observed(false); private set
+    var realForceMethod by observed("median"); private set
+    var forceMeterConnected by observed(false); private set
+    var realResults by observed<List<RealForceResult>>(emptyList()); private set
+    var resultMethod by observed("median"); private set
+    var realMessage by observed(""); private set
+    var onPullCue: (() -> Unit)? = null
+    private var realDrop=0.5
+    private var realHold=250L
+    private var realRep: RealForceRep?=null
+    private var pendingMeasurement: RealForceResult?=null
+    val isRealForce: Boolean get() = active?.optBoolean("realForce") == true
+    fun configureRealForce(enabled: Boolean, method: String, connected: Boolean, drop: Double, hold: Long) {
+        realForceEnabled=enabled;realForceMethod=if(method=="average") "average" else "median"
+        forceMeterConnected=connected;realDrop=drop;realHold=hold
+        if(!connected) pauseRealForce("Force meter disconnected. The unfinished rep was not counted.")
+        bridge.updateRealForceOptions()
+    }
+    fun startRealForce(gripper: String, side: String, pounds: Double, reps: Int, rest: Int, target: Int?) {
+        if(!realForceEnabled || !forceMeterConnected) return
+        start(gripper,side,pounds,reps,rest,0,target,true)
+    }
+    fun pauseRealForce(message: String) {
+        if(!isRealForce || phase !in listOf("rep","ready")) return
+        realRep=null;phase="paused";seconds=0;realMessage=message;publish()
+    }
+    fun forceSample(kg: Double, now: Long) {
+        if(!isRealForce || !forceMeterConnected || phase !in listOf("ready","rep") || !kg.isFinite()) return
+        val record=active ?: return
+        val last=realRep?.lastSampleAt
+        if(phase=="rep" && last!=null && now-last>1500) {pauseRealForce("Force signal interrupted. The unfinished rep was not counted.");return}
+        val engine=realRep ?: RealForceRep(record.getDouble("weightLbs")*0.45359237,record.getString("realMethod"),record.getDouble("realDrop"),record.getLong("realHoldMs")).also {realRep=it}
+        val result=engine.sample(kg,now)
+        if(phase=="ready" && engine.startedAt!=null) {phase="rep";phaseStart=engine.startedAt!!;seconds=0;realMessage="";publish()}
+        if(result!=null) {pendingMeasurement=result;commitRep(now,result)}
+    }
+    fun retryMeasuredRep() {pendingMeasurement?.let {commitRep(SystemClock.elapsedRealtime(),it)}}
     private var phaseStart = 0L
     private var lastNetworkCheck = 0L
     private var lastTimerVisible = false
@@ -111,46 +148,79 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         val destination = store ?: return false
         destination.update(change); error=""; _revision.value++; true
     } catch (_: Exception) { error = "Could not save offline data. Free storage and try again; keep this set open."; false } }
-    fun start(gripper: String, side: String, weightLbs: Double, reps: Int, rest: Int, countdown: Int, targetDuration: Int? = null) {
+    fun start(gripper: String, side: String, weightLbs: Double, reps: Int, rest: Int, countdown: Int, targetDuration: Int? = null, real: Boolean = false) {
+        if(real && (!realForceEnabled || !forceMeterConnected)) return
         if ((targetDuration!=null && targetDuration !in 1..3600) || inProgress || !available || gripper !in listOf("micro","crusher","prime") || side !in listOf("left","right") || !weightLbs.isFinite() || weightLbs <= 0 || reps !in 1..100 || rest !in 0..600 || countdown !in 0..60) return
         if(store?.has("webActive") == true) { active=state.getJSONObject("webActive");phase="paused";open=true;publish();return }
         val record = JSONObject().put("id",UUID.randomUUID().toString()).put("owner",state.optString("lastAccount"))
             .put("date_time",Instant.ofEpochMilli(System.currentTimeMillis()).toString()).put("gripper",gripper).put("side",side).put("weightLbs",weightLbs)
             .put("targetDuration",targetDuration).put("plannedReps",reps).put("rest",rest).put("countdown",countdown).put("reps",JSONArray())
+        if(real) record.put("realForce",true).put("realMethod",realForceMethod).put("realDrop",realDrop).put("realHoldMs",realHold)
         if (!save { it.put("active",record).put("defaults",record) }) return
-        active=record; seconds=countdown; open=true; phase=if(countdown>0) "countdown" else "rep"; phaseStart=SystemClock.elapsedRealtime()
+        realRep=null;pendingMeasurement=null;realResults=emptyList();resultMethod=realForceMethod;realMessage=""
+        active=record; seconds=countdown; open=true; phase=if(real) "ready" else if(countdown>0) "countdown" else "rep"; phaseStart=SystemClock.elapsedRealtime()
         bridge.offlineEndRep = ::endRep
         publish()
     }
     internal fun tick(now: Long) {
         val record=active ?: return
+        if(isRealForce && phase=="rep") {
+            val last=realRep?.lastSampleAt
+            if(last==null || now-last>1500) {pauseRealForce("Force signal interrupted. The unfinished rep was not counted.");return}
+            if(now-phaseStart>3600000) {pauseRealForce("Maximum rep duration reached. The unfinished rep was not counted.");return}
+        }
         val elapsed=((now-phaseStart)/1000).toInt().coerceAtLeast(0)
         seconds=when(phase) { "countdown" -> (record.getInt("countdown")-elapsed).coerceAtLeast(0); "rest" -> (record.getInt("rest")-elapsed).coerceAtLeast(0); "rep" -> elapsed; else -> 0 }
-        if ((phase=="countdown" || phase=="rest") && seconds==0) { phase="rep"; phaseStart=now }
+        if ((phase=="countdown" || phase=="rest") && seconds==0) {
+            phase=if(isRealForce) "ready" else "rep"; phaseStart=now
+            if(isRealForce) {realRep=null;onPullCue?.invoke()}
+        }
         publish()
     }
     private fun publish() {
         val record=active ?: return
         bridge.offlineEndRep=::endRep
-        bridge.onOfflineSnapshot(JSONObject().put("phase",if(phase=="paused") "setup" else phase).put("active",phase=="rep")
+        bridge.onOfflineSnapshot(JSONObject().put("phase",if(phase in listOf("paused","ready","save_failed")) "setup" else phase).put("active",phase=="rep")
             .put("targetDuration",record.optInt("targetDuration")).put("repKey",record.getString("id")+":"+record.getJSONArray("reps").length()).put("seconds",seconds)
             .put("weight","${record.getDouble("weightLbs")} lbs").put("gripper",record.getString("gripper"))
             .put("side",record.getString("side")).put("url","offline://timer").toString())
     }
     fun endRep() {
-        val record=active ?: return
-        if (phase!="rep") return
-        val next=JSONObject(record.toString())
-        // Match the website timer: round elapsed time to positive integer seconds.
-        next.getJSONArray("reps").put(kotlin.math.round((SystemClock.elapsedRealtime()-phaseStart)/1000.0).toInt().coerceAtLeast(1))
-        if (!save { it.put("active",next) }) return
-        active=next
-        if (next.getJSONArray("reps").length()>=next.getInt("plannedReps")) { phase="complete"; publish() }
-        else { seconds=next.getInt("rest"); phase=if(next.getInt("rest")>0) "rest" else "rep"; phaseStart=SystemClock.elapsedRealtime(); publish() }
+        if(isRealForce || phase!="rep") return
+        commitRep(SystemClock.elapsedRealtime(),null)
     }
-    fun resumeRecovered() { if(phase=="paused" && active!=null) {phase="countdown";phaseStart=SystemClock.elapsedRealtime();publish()} }
+    private fun commitRep(now: Long, result: RealForceResult?) {
+        val record=active ?: return
+        val next=JSONObject(record.toString())
+        val duration=result?.seconds ?: kotlin.math.round((now-phaseStart)/1000.0).toInt().coerceAtLeast(1)
+        val done=next.getJSONArray("reps").length()
+        next.getJSONArray("reps").put(duration)
+        if(result!=null && done==0) next.put("weightLbs",result.pounds)
+        if (!save { it.put("active",next) }) {
+            if(result!=null) {phase="save_failed";publish()}
+            return
+        }
+        if(result!=null) realResults=realResults+result.copy(rep=done+1)
+        pendingMeasurement=null;realRep=null
+        active=next
+        if (next.getJSONArray("reps").length()>=next.getInt("plannedReps")) {phase="complete";seconds=0}
+        else {
+            seconds=next.getInt("rest")
+            phase=if(seconds>0) "rest" else if(isRealForce) "ready" else "rep"
+            phaseStart=now
+            if(phase=="ready") onPullCue?.invoke()
+        }
+        publish()
+    }
+    fun resumeRecovered() {
+        if(phase=="paused" && active!=null) {
+            if(isRealForce && !forceMeterConnected) return
+            realRep=null;realMessage="";phase=if(isRealForce) "ready" else "countdown";phaseStart=SystemClock.elapsedRealtime();publish()
+        }
+    }
     fun finish() {
         val record=active ?: return
+        if(isRealForce && phase in listOf("rep","save_failed")) return
         if (record.getJSONArray("reps").length()==0) { syncMessage="Complete a rep before saving this set."; return }
         try { store?.enqueue(record) ?: return } catch (_: Exception) {error="Could not save the set. Free storage and try Save set again.";return}
         active=null;phase="setup";bridge.offlineEndRep=null;bridge.invalidate("Offline set saved");syncMessage="";error="";_revision.value++
@@ -160,6 +230,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         if(active==null) return
         if(!save {it.remove("active");it.remove("webActive")}) return
         active=null;phase="setup";seconds=0;webSaved=true;syncMessage=""
+        realResults=emptyList();realRep=null;pendingMeasurement=null;realMessage=""
         bridge.offlineEndRep=null;bridge.invalidate("Set discarded")
     }
     fun cancelEmpty() { if(active?.getJSONArray("reps")?.length()!=0)return; if(save {it.remove("active");it.remove("webActive")}){active=null;phase="setup";bridge.offlineEndRep=null;bridge.invalidate()} }
