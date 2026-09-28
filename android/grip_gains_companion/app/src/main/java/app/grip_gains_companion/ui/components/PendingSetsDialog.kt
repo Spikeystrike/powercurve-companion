@@ -11,7 +11,9 @@ import app.grip_gains_companion.service.offline.OfflineTraining
 import org.json.JSONObject
 
 @Composable
-fun PendingSetsDialog(training: OfflineTraining, close: () -> Unit) {
+fun PendingSetsDialog(training: OfflineTraining, useLbs: Boolean, close: () -> Unit) {
+    val unit=if(useLbs) "lb" else "kg"
+    val factor=if(useLbs) 1.0/0.45359237 else 1.0
     val revision by training.revision.collectAsState()
     val rows=remember(revision) {training.queue()}
     var selected by remember {mutableStateOf<JSONObject?>(null)}
@@ -25,7 +27,7 @@ fun PendingSetsDialog(training: OfflineTraining, close: () -> Unit) {
                 Text("Automatic uploads pause while this list is open.")
                 if(rows.isEmpty()) Text("No pending sets.")
                 rows.forEach {item->
-                    Text(item.optString("gripper")+" · "+item.optString("side")+" · "+item.optDouble("weightKg")+" kg")
+                    Text(item.optString("gripper")+" · "+item.optString("side")+" · "+displayNumber(item.optDouble("weightKg")*factor)+" "+unit)
                     Text(item.optString("date_time")+" · "+item.optJSONArray("reps").toString()+" s",style=MaterialTheme.typography.bodySmall)
                     if(item.optBoolean("uploadStarted")) Text("Upload already started. Wait for sync, then edit or delete online.",style=MaterialTheme.typography.bodySmall)
                     else TextButton(onClick={selected=JSONObject(item.toString());message=""}) {Text("Edit or delete")}
@@ -36,16 +38,17 @@ fun PendingSetsDialog(training: OfflineTraining, close: () -> Unit) {
     } else {
         var gripper by remember(row) {mutableStateOf(row.getString("gripper"))}
         var side by remember(row) {mutableStateOf(row.getString("side"))}
-        var weight by remember(row) {mutableStateOf(row.getDouble("weightKg").toString())}
+        val originalWeight=displayNumber(row.getDouble("weightKg")*factor)
+        var weight by remember(row,useLbs) {mutableStateOf(originalWeight)}
         var reps by remember(row) {mutableStateOf((0 until row.getJSONArray("reps").length()).joinToString(", "){row.getJSONArray("reps").getInt(it).toString()})}
         val durations=reps.split(',').map {it.trim().toIntOrNull()}
-        val kg=weight.replace(',','.').toDoubleOrNull()
+        val kg=if(weight==originalWeight) row.getDouble("weightKg") else weight.replace(',','.').toDoubleOrNull()?.div(factor)
         val valid=kg!=null && kg.isFinite() && kg>0 && durations.size in 1..100 && durations.all {it!=null && it in 1..3600}
         AlertDialog(onDismissRequest={selected=null},title={Text("Edit pending set")},text={
             Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 Row {listOf("micro","crusher","prime").forEach {name->FilterChip(selected=gripper==name,onClick={gripper=name},label={Text(name)})}}
                 Row {listOf("left","right").forEach {name->FilterChip(selected=side==name,onClick={side=name},label={Text(name)})}}
-                OutlinedTextField(weight,{weight=it},label={Text("Set weight (kg)")},singleLine=true)
+                OutlinedTextField(weight,{weight=decimalInput(it)},label={Text("Set weight ("+unit+")")},singleLine=true)
                 OutlinedTextField(reps,{reps=it},label={Text("Rep durations (seconds, comma-separated)")})
                 Text("Each rep must be 1–3600 seconds. The original set date is preserved.",style=MaterialTheme.typography.bodySmall)
                 TextButton(onClick={deleting=true}) {Text("Delete set")}

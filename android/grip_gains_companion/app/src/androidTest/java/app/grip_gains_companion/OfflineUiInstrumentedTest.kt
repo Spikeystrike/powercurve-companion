@@ -32,6 +32,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class OfflineUiInstrumentedTest {
     @get:Rule val ui=createComposeRule()
+    private val useLbs=mutableStateOf(false)
     private val panelHeight=mutableStateOf(700.dp)
     private lateinit var directory:File
     private lateinit var training:OfflineTraining
@@ -45,7 +46,7 @@ class OfflineUiInstrumentedTest {
             training=OfflineTraining(context,bridge,CoroutineScope(Job().apply {cancel()}+Dispatchers.Main))
             bridge.offline=training
         }
-        ui.setContent {GripGainsTheme(darkTheme=true) {Column {OfflineStatus(training);OfflineTimer(training,false,Modifier.height(panelHeight.value).fillMaxWidth().testTag("offline-timer"))}}}
+        ui.setContent {GripGainsTheme(darkTheme=true) {Column {OfflineStatus(training,useLbs.value);OfflineTimer(training,useLbs.value,Modifier.height(panelHeight.value).fillMaxWidth().testTag("offline-timer"))}}}
     }
     @After fun cleanup() {directory.listFiles()?.forEach {it.delete()};directory.delete()}
     @Test fun twoSetsCanBeCompletedAndRemainQueuedAcrossReopening() {
@@ -55,6 +56,7 @@ class OfflineUiInstrumentedTest {
         repeat(2) {
             ui.onNodeWithText("Start set").performScrollTo().performClick()
             ui.onNodeWithText("End rep").performScrollTo().performClick()
+            ui.onNodeWithText("Save set").performScrollTo().performClick()
             ui.onNodeWithText("${it+1} set(s) waiting to sync").assertIsDisplayed()
         }
         assertEquals(2,OfflineStore(context).snapshot().getJSONArray("queue").length())
@@ -126,7 +128,7 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Target countdown: 5 s").assertIsDisplayed()
         ui.onNodeWithText("End rep").performClick()
         ui.onNodeWithText("Target countdown:",substring=true).assertDoesNotExist()
-        ui.onNodeWithText("Discard set without saving").performClick()
+        hold("Discard set without saving")
         ui.onNodeWithText("Start set").performScrollTo().assertExists()
         assertEquals(0,training.pending)
         assertFalse(OfflineStore(context).snapshot().has("active"))
@@ -169,7 +171,7 @@ class OfflineUiInstrumentedTest {
     }
 
     @Test fun pendingSetCanBeEditedAndDeletedFromTheDialog() {
-        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0);training.endRep()}
+        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0);training.endRep();training.finish()}
         ui.onNodeWithText("Review pending sets").performClick()
         ui.onNodeWithText("Edit or delete").performClick()
         ui.onNodeWithText("Set weight (kg)").performTextReplacement("22")
@@ -192,5 +194,44 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
         ui.onNodeWithText("Not enough training data for a recommendation in this zone.").performScrollTo().assertIsDisplayed()
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("20")
+    }
+
+    private fun hold(label:String, millis:Long=2300) {
+        ui.onNodeWithText(label).performScrollTo()
+        ui.mainClock.autoAdvance=false
+        ui.onNodeWithText(label).performTouchInput {down(center)}
+        ui.mainClock.advanceTimeBy(millis)
+        ui.onRoot().performTouchInput {up()}
+        ui.mainClock.autoAdvance=true
+        ui.waitForIdle()
+    }
+    @Test fun prematureSaveAndDiscardRequireHoldingAndCompletedSetUsesNormalSave() {
+        ui.runOnUiThread {training.start("prime","left",20.0,2,60,0);training.endRep()}
+        ui.onNodeWithText("Locked").assertIsNotEnabled()
+        ui.onNodeWithText("Hold to save set now").performScrollTo().performTouchInput {click()}
+        assertEquals(0,training.pending);assertTrue(training.inProgress)
+        hold("Hold to save set now",600)
+        assertEquals(0,training.pending)
+        hold("Hold to save set now")
+        assertEquals(1,training.pending)
+        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0)}
+        hold("Discard set without saving",600);assertTrue(training.inProgress)
+        hold("Discard set without saving");assertFalse(training.inProgress);assertEquals(1,training.pending)
+        ui.runOnUiThread {training.start("prime","left",20.0,1,0,0);training.endRep()}
+        assertEquals(1,training.pending)
+        ui.onNodeWithText("Save set").performScrollTo().performClick()
+        assertEquals(2,training.pending)
+    }
+    @Test fun pendingEditorUsesPoundsAndConvertsEditedWeight() {
+        ui.runOnUiThread {useLbs.value=true;training.start("prime","left",20.0,1,0,0);training.endRep();training.finish()}
+        ui.onNodeWithText("Review pending sets").performClick()
+        ui.onNodeWithText("44.092 lb",substring=true).assertExists()
+        ui.onNodeWithText("Edit or delete").performClick()
+        ui.onNodeWithText("Set weight (lb)").assertTextContains("44.092")
+        ui.onNodeWithText("Set weight (lb)").performTextReplacement("50.12345")
+        ui.onNodeWithText("Set weight (lb)").assertTextContains("50.123")
+        ui.onNodeWithText("Save changes").performClick()
+        assertEquals(50.123*0.45359237,training.queue().single().getDouble("weightKg"),0.000001)
+        ui.onNodeWithText("Done").performClick()
     }
 }

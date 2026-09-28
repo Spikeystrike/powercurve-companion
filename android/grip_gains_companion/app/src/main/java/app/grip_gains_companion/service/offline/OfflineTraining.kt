@@ -79,7 +79,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
             store = OfflineStore(context)
             refreshCurveMemory()
             active = state.optJSONObject("active") ?: state.optJSONObject("webActive")
-            if (active != null) { phase = "paused"; open = true }
+            if (active != null) { phase = if(active!!.getJSONArray("reps").length()>=active!!.getInt("plannedReps")) "complete" else "paused"; open = true }
         } catch (_: Exception) { error = "Offline data could not be read. Your saved file has been kept." }
         scope.launch {
             while (true) {
@@ -145,7 +145,7 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         next.getJSONArray("reps").put(kotlin.math.round((SystemClock.elapsedRealtime()-phaseStart)/1000.0).toInt().coerceAtLeast(1))
         if (!save { it.put("active",next) }) return
         active=next
-        if (next.getJSONArray("reps").length()>=next.getInt("plannedReps")) { phase="complete"; publish(); finish() }
+        if (next.getJSONArray("reps").length()>=next.getInt("plannedReps")) { phase="complete"; publish() }
         else { seconds=next.getInt("rest"); phase=if(next.getInt("rest")>0) "rest" else "rep"; phaseStart=SystemClock.elapsedRealtime(); publish() }
     }
     fun resumeRecovered() { if(phase=="paused" && active!=null) {phase="countdown";phaseStart=SystemClock.elapsedRealtime();publish()} }

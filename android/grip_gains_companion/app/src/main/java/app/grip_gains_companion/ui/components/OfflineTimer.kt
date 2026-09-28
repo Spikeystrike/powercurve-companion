@@ -17,11 +17,11 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun OfflineStatus(training: OfflineTraining) {
+fun OfflineStatus(training: OfflineTraining, useLbs: Boolean = false) {
     val revision by training.revision.collectAsState()
     @Suppress("UNUSED_VARIABLE") val refresh=revision
     var showPending by remember {mutableStateOf(false)}
-    if(showPending) PendingSetsDialog(training) {showPending=false;training.manageQueue(false)}
+    if(showPending) PendingSetsDialog(training,useLbs) {showPending=false;training.manageQueue(false)}
     if(training.pending==0 && training.synced==0 && training.error.isEmpty()) return
     Surface(color=MaterialTheme.colorScheme.secondaryContainer,modifier=Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal=12.dp,vertical=6.dp)) {
@@ -45,7 +45,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     val defaults=remember {training.state.optJSONObject("defaults")}
     var gripper by rememberSaveable {mutableStateOf(defaults?.optString("gripper") ?: "crusher")}
     var side by rememberSaveable {mutableStateOf(defaults?.optString("side") ?: "left")}
-    var weight by rememberSaveable {mutableStateOf(defaults?.optDouble("weightKg")?.let {if(useLbs) it/0.45359237 else it}?.toString() ?: "")}
+    var weight by rememberSaveable {mutableStateOf(defaults?.optDouble("weightKg")?.let {displayNumber(if(useLbs) it/0.45359237 else it)} ?: "")}
     var reps by rememberSaveable {mutableStateOf((defaults?.optInt("plannedReps") ?: 6).toString())}
     var rest by rememberSaveable {mutableStateOf((defaults?.optInt("rest") ?: 10).toString())}
     var countdown by rememberSaveable {mutableStateOf((defaults?.optInt("countdown") ?: 20).toString())}
@@ -53,7 +53,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     var previousLbs by rememberSaveable {mutableStateOf(useLbs)}
     LaunchedEffect(useLbs) {
         if(previousLbs!=useLbs) {
-            weight.replace(',','.').toDoubleOrNull()?.let { weight=(if(useLbs) it/0.45359237 else it*0.45359237).toString() }
+            weight.replace(',','.').toDoubleOrNull()?.let { weight=displayNumber(if(useLbs) it/0.45359237 else it*0.45359237) }
             previousLbs=useLbs
         }
     }
@@ -87,7 +87,7 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             }
             }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(weight,{edited=true;weight=it;val match=curve?.estimate(it.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);targetTime=match?.seconds?.toString() ?: "";if(match!=null) reps=match.zone.reps.toString()},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(weight,{edited=true;weight=decimalInput(it);val match=curve?.estimate(weight.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);targetTime=match?.seconds?.toString() ?: "";if(match!=null) reps=match.zone.reps.toString()},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(reps,{edited=true;reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
             }
             OutlinedTextField(targetTime,{edited=true;targetTime=it},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
@@ -110,9 +110,13 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
                 Text("Interrupted set recovered. Completed reps are safe; the interrupted rep was not counted.")
                 Button(onClick=training::resumeRecovered){Text("Continue set")}
             }
-            if(training.phase=="rep") Button(onClick=training::endRep,modifier=Modifier.fillMaxWidth()){Text("End rep")}
-            if(done>0 && training.phase!="rep") Button(onClick=training::finish){Text("Save set now")}
-            TextButton(onClick=training::discardSet,modifier=Modifier.fillMaxWidth()){Text("Discard set without saving")}
+            val complete=done>=active.getInt("plannedReps")
+            val actionKey=active.getString("id")+":"+training.phase+":"+done
+            if(complete) Button(onClick=training::finish,modifier=Modifier.fillMaxWidth()){Text("Save set")}
+            else if(training.phase=="rep") Button(onClick=training::endRep,modifier=Modifier.fillMaxWidth()){Text("End rep")}
+            else Button(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()){Text("Locked")}
+            if(!complete) HoldToConfirm("Hold to save set now",enabled=done>0 && training.phase!="rep",resetKey=actionKey,action=training::finish)
+            HoldToConfirm("Discard set without saving",resetKey=actionKey,action=training::discardSet)
         }
         if(training.error.isNotBlank()) Text(training.error,color=MaterialTheme.colorScheme.error)
     }

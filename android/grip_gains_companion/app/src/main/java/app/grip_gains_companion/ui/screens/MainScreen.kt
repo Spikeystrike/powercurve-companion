@@ -282,7 +282,7 @@ fun MainScreen(
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A2231))) {
 
             Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(bottom = with(density) { sheetHeightPx.value.toDp() })) {
-                app.grip_gains_companion.ui.components.OfflineStatus(offline)
+                app.grip_gains_companion.ui.components.OfflineStatus(offline,useLbs)
                 TimerWebView(
                     bridge = webViewBridge,
                     cachedWebView = cachedWebView,

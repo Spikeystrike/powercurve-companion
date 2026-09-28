@@ -42,15 +42,15 @@ class OfflineTrainingTest {
         assertEquals(1,final.getInt("synced"))
         assertEquals("b",final.getJSONArray("queue").getJSONObject(0).getString("id"))
     }
-    @Test fun setIsQueuedAutomaticallyWithMeasuredDurationsAndOriginalAccount() {
+    @Test fun savedSetKeepsMeasuredDurationsAndOriginalAccount() {
         val (t,b)=training()
         t.accountSeen("7","Test")
         t.start("crusher","left",2.0,2,0,0)
         assertTrue(b.isFreshActive)
         assertEquals(2.0,b.targetWeight.value!!,0.0)
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(12));t.endRep()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(12));t.endRep();if(t.phase=="complete")t.finish()
         t.accountSeen("8","Another")
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));t.endRep()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));t.endRep();if(t.phase=="complete")t.finish()
         assertFalse(t.inProgress);assertEquals(1,t.pending)
         val saved=t.queue().single()
         assertEquals("7",saved.getString("owner"))
@@ -60,7 +60,7 @@ class OfflineTrainingTest {
     @Test fun restartRecoversCompletedRepsWithoutInventingTimeForInterruptedRep() {
         val (t,_)=training()
         t.start("micro","right",10.0,3,0,0)
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(6));t.endRep()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(6));t.endRep();if(t.phase=="complete")t.finish()
         ShadowSystemClock.advanceBy(Duration.ofHours(1))
         val (restored,_)=training()
         assertEquals("paused",restored.phase)
@@ -89,7 +89,7 @@ class OfflineTrainingTest {
     }
     @Test fun unknownAccountRequiresExplicitAssignment() {
         val (t,_)=training();t.start("crusher","left",20.0,1,0,0)
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(3));t.endRep()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(3));t.endRep();if(t.phase=="complete")t.finish()
         assertEquals("",t.queue().single().getString("owner"))
         t.accountSeen("42","Test");assertTrue(t.needsAccount)
         t.assignUnowned();assertEquals("42",t.queue().single().getString("owner"))
@@ -169,11 +169,11 @@ class OfflineTrainingTest {
     }
     @Test fun discardCompletedAndActiveRepsNeverQueuesAndSurvivesRestart() {
         val (t,b)=training()
-        t.start("crusher","left",20.0,1,0,0);t.endRep()
+        t.start("crusher","left",20.0,1,0,0);t.endRep();if(t.phase=="complete")t.finish()
         val savedId=t.queue().single().getString("id")
         t.start("crusher","left",20.0,3,0,0)
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));t.endRep()
-        t.discardSet();t.endRep()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));t.endRep();if(t.phase=="complete")t.finish()
+        t.discardSet();t.endRep();if(t.phase=="complete")t.finish()
         assertFalse(t.inProgress);assertFalse(b.isFreshActive)
         assertNull(b.offlineEndRep)
         assertEquals(savedId,t.queue().single().getString("id"))
@@ -189,7 +189,7 @@ class OfflineTrainingTest {
         ShadowSystemClock.advanceBy(Duration.ofSeconds(3));t.tick(android.os.SystemClock.elapsedRealtime())
         assertEquals(-3,t.targetRemaining)
         assertTrue(t.inProgress)
-        t.endRep()
+        t.endRep();if(t.phase=="complete")t.finish()
         assertEquals(8,t.active!!.getJSONArray("reps").getInt(0))
         ShadowSystemClock.advanceBy(Duration.ofSeconds(2));t.tick(android.os.SystemClock.elapsedRealtime())
         assertEquals("rep",t.phase);assertEquals(5,t.targetRemaining)
@@ -199,7 +199,7 @@ class OfflineTrainingTest {
         val (t,_)=training()
         t.start("crusher","left",20.0,3,10,20);t.discardSet()
         assertFalse(t.inProgress)
-        t.start("crusher","left",20.0,3,10,0);t.endRep()
+        t.start("crusher","left",20.0,3,10,0);t.endRep();if(t.phase=="complete")t.finish()
         assertEquals("rest",t.phase)
         val restored=training().first
         assertEquals("paused",restored.phase)
@@ -209,7 +209,7 @@ class OfflineTrainingTest {
     @Test fun importedSetRemainsInHistoryAcrossRestartBeforeServerRefresh() {
         val (t,_)=training();t.accountSeen("7","Test")
         t.start("crusher","left",20.0,1,0,0)
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep();if(t.phase=="complete")t.finish()
         val before=t.history("crusher","left").single();assertTrue(before.pending)
         t.acknowledge(t.queue().single().getString("id"))
         assertEquals(0,t.pending)
@@ -229,14 +229,14 @@ class OfflineTrainingTest {
         for(gripper in listOf("prime","crusher","micro")) {
             val (t,_)=training();t.accountSeen("7","Test")
             t.start(gripper,"left",20.0,1,0,0)
-            ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep()
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(90));t.endRep();if(t.phase=="complete")t.finish()
             t.acknowledge(t.queue().single().getString("id"))
             val ack=t.state.getJSONArray("localHistory").getJSONObject(0).getLong("acknowledgedAt")
             val cache=JSONObject().put("sides",JSONArray()).put("sessions",JSONArray()).put("sessionsFetchedAt",ack-1)
             t.cacheCurves("7",cache)
             assertEquals(1,t.history(gripper,"left").size)
             t.start(gripper,"left",22.0,1,0,0)
-            ShadowSystemClock.advanceBy(Duration.ofSeconds(40));t.endRep()
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(40));t.endRep();if(t.phase=="complete")t.finish()
             t.cacheCurves("7",JSONObject(cache.toString()).put("sessionsFetchedAt",ack+1))
             assertEquals(1,t.history(gripper,"left").size)
             assertTrue(t.history(gripper,"left").single().pending)
@@ -249,7 +249,7 @@ class OfflineTrainingTest {
 
     @Test fun pendingEditsAndDeletionPersistAndUploadingRowsAreProtected() {
         val (t,_)=training();t.accountSeen("7","Test")
-        t.start("prime","left",20.0,1,0,0);ShadowSystemClock.advanceBy(Duration.ofSeconds(20));t.endRep()
+        t.start("prime","left",20.0,1,0,0);ShadowSystemClock.advanceBy(Duration.ofSeconds(20));t.endRep();if(t.phase=="complete")t.finish()
         val row=t.queue().single();val id=row.getString("id");val date=row.getString("date_time")
         t.manageQueue(true);assertFalse(t.markUploading(id))
         assertFalse(t.updatePending(id,"prime","right",-1.0,listOf(30)))
@@ -263,7 +263,7 @@ class OfflineTrainingTest {
         assertFalse(restored.updatePending(id,"prime","left",20.0,listOf(10)))
         assertFalse(restored.deletePending(id))
         assertFalse(training().first.canEditPending(id))
-        restored.start("micro","left",10.0,1,0,0);restored.endRep()
+        restored.start("micro","left",10.0,1,0,0);restored.endRep();if(restored.phase=="complete")restored.finish()
         val other=restored.queue().last().getString("id")
         assertTrue(restored.deletePending(other))
         assertEquals(1,training().first.pending)
@@ -277,5 +277,13 @@ class OfflineTrainingTest {
         assertEquals(456L,t.historyCheckedAt)
         t.cacheCurves("8",JSONObject(cache.toString()).put("sessionsFetchedAt",999L))
         assertEquals(456L,t.historyCheckedAt)
+    }
+
+    @Test fun completedSetWaitsForExplicitSaveAndSurvivesRestart() {
+        val (t,_)=training();t.start("prime","left",20.0,1,0,0);t.endRep()
+        assertEquals("complete",t.phase);assertEquals(0,t.pending);assertTrue(t.inProgress)
+        val restored=training().first
+        assertEquals("complete",restored.phase);assertEquals(0,restored.pending)
+        restored.finish();assertEquals(1,restored.pending);assertFalse(restored.inProgress)
     }
 }
