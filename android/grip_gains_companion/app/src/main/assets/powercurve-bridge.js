@@ -4,7 +4,7 @@
   if (location.origin !== 'https://powercurve.tantaluspath.com' || window !== window.top) return;
   if (!document.body) { document.addEventListener('DOMContentLoaded', install, { once: true }); return; }
   if (window.PowercurveCompanion) { window.PowercurveCompanion.refresh(); return; }
-  let previousPhase = '', generation = 0, lastEndedKey = null;
+  let previousPhase = '', generation = 0, lastEndedKey = null, recommendationNotBefore = 0;
   const visible = el => !!el && el.getClientRects().length > 0;
   const text = el => el?.textContent?.trim() || '';
   function applyStartupSelection() {
@@ -20,6 +20,7 @@
       if (!gripper || !side || gripper.disabled || side.disabled) return;
       if (![...gripper.options].some(o => o.value === 'micro') || ![...side.options].some(o => o.value === 'left')) return;
       sessionStorage.setItem('powercurve.nativeStartup', token);
+      recommendationNotBefore = Date.now() + 500;
       const setValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
       for (const [input, value] of [[gripper, 'micro'], [side, 'left']]) {
         setValue.call(input, value);
@@ -27,8 +28,28 @@
       }
     } catch (_) { /* Leave the website usable if browser storage is unavailable. */ }
   }
+  function applyRecommendedTarget() {
+    const token = window.PowercurveRecommendationToken;
+    if (!token || Date.now() < recommendationNotBefore) return;
+    try {
+      if (sessionStorage.getItem('powercurve.nativeRecommendation') === token) return;
+      const face = document.querySelector('.timerPanel .timerFace');
+      if (!face?.classList.contains('timerFace-setup')) return;
+      const input = document.querySelector('.timerSetupGrid input[aria-label^="Weight ("]');
+      // An existing choice (including an edit in progress) takes precedence.
+      if (input?.value.trim()) {
+        sessionStorage.setItem('powercurve.nativeRecommendation', token);
+        return;
+      }
+      const button = document.querySelector('.timerZoneButton-recommended');
+      if (!visible(button) || button.disabled) return;
+      sessionStorage.setItem('powercurve.nativeRecommendation', token);
+      button.click();
+    } catch (_) { /* Wait for a usable recommendation without blocking the page. */ }
+  }
   function snapshot() {
     applyStartupSelection();
+    applyRecommendedTarget();
     const face = document.querySelector('.timerPanel .timerFace');
     const phase = ['setup','countdown','rep','rest','complete'].find(p => face?.classList.contains('timerFace-' + p)) || 'unavailable';
     if (phase !== previousPhase) {

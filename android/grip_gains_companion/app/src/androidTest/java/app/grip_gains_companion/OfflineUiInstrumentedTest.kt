@@ -35,6 +35,7 @@ class OfflineUiInstrumentedTest {
     private val useLbs=mutableStateOf(false)
     private val panelHeight=mutableStateOf(700.dp)
     private lateinit var directory:File
+    private lateinit var bridge:WebViewBridge
     private lateinit var training:OfflineTraining
     private lateinit var context:ContextWrapper
     @Before fun setup() {
@@ -42,9 +43,10 @@ class OfflineUiInstrumentedTest {
         directory=File(original.cacheDir,"offline-ui-test-${UUID.randomUUID()}").apply {mkdirs()}
         context=object:ContextWrapper(original){override fun getFilesDir():File=directory}
         ui.runOnUiThread {
-            val bridge=WebViewBridge()
+            bridge=WebViewBridge()
             training=OfflineTraining(context,bridge,CoroutineScope(Job().apply {cancel()}+Dispatchers.Main))
             bridge.offline=training
+            training.openTimer()
         }
         ui.setContent {GripGainsTheme(darkTheme=true) {Column {OfflineStatus(training,useLbs.value);OfflineTimer(training,useLbs.value,Modifier.height(panelHeight.value).fillMaxWidth().testTag("offline-timer"))}}}
     }
@@ -75,15 +77,18 @@ class OfflineUiInstrumentedTest {
             training.cacheCurves("curve-test",JSONObject("""{"savedAt":1790500000000,"sides":[{"gripper":"micro","side":"left","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[{"hold":40},{"hold":60},{"hold":100},{"hold":150},{"hold":230}],"zone_characteristic_times":{"power":40,"power_strength":60,"strength":100,"strength_endurance":150,"endurance":230}}]}"""))
         }
         ui.onNodeWithText("Endurance").assertIsSelected()
+        assertNotNull(bridge.targetWeight.value)
         ui.onNodeWithText("Hold time (s) vs weight (kg)").performScrollTo().assertIsDisplayed()
         ui.onNodeWithText("Endurance",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
         ui.onNodeWithTag("offline-curve-plot").performScrollTo().performTouchInput {click(center)}
         ui.onNodeWithTag("offline-curve-readout").assertTextContains("Curve point:",substring=true)
         ui.onNodeWithTag("offline-curve-readout").assertTextContains("kg",substring=true)
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("59.42")
+        assertEquals(59.42,bridge.targetWeight.value!!,0.00001)
         ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("15")
         ui.onNodeWithText("Strength",useUnmergedTree=true).performScrollTo().performClick()
         ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
+        assertEquals(25.0,bridge.targetWeight.value!!,0.00001)
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")
         ui.onNodeWithText("Strength · 101 s estimated hold",substring=true).performScrollTo().assertIsDisplayed()
         ui.onNodeWithTag("offline-curve-readout").performScrollTo().assertTextContains("25.00 kg",substring=true)
@@ -105,6 +110,7 @@ class OfflineUiInstrumentedTest {
         assertFalse(guideAt(px,py/2));assertFalse(guideAt((px+plot.width)/2,py))
         ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("10")
         ui.onNodeWithTag("offline-curve-readout").performScrollTo().assertTextContains("10.00 kg",substring=true)
+        assertEquals(10.0,bridge.targetWeight.value!!,0.00001)
         ui.onNodeWithTag("selected-weight-axis").assertTextContains("10.00 kg",substring=true)
         ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("231")
         ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("4")

@@ -105,3 +105,5 @@ The local timer shows when history was checked. **Update now** requests a fresh 
 Bluetooth status distinguishes searching, waiting for readings and receiving readings. The receiving indicator expires after three seconds without samples; it does not imply a new measurement or change connection recovery.
 
 The force panel stays collapsed after you swipe it down or close it with its handle. Timer changes and returning readings from the same connection do not reopen it. The first reading from a new device connection can reopen the panel.
+
+The target follows the active timer. Online setup uses the selected weight, or the recommended zone when no weight has been selected. Returning from local mode preserves the online selection and uses the recommendation if the online weight is empty. Local mode uses the selected zone immediately, before starting a set, and updates the target when you select another zone, tap the curve or enter a weight. Hidden website updates cannot replace a local target.

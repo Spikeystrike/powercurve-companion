@@ -35,8 +35,8 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                 return uri.scheme == "https" && uri.host == "powercurve.tantaluspath.com" && (uri.port == -1 || uri.port == 443)
             }
             fun install(view: WebView?, url: String?) {
-                if (trusted(url) && supportsBridge) view?.evaluateJavascript("window.PowercurveStartupToken=" + org.json.JSONObject.quote(bridge.startupToken) + ";" + JavaScriptBridge.install(context), null)
-                else if (!supportsBridge) bridge.invalidate("Update Android System WebView to enable auto-end")
+                if (trusted(url) && supportsBridge) view?.evaluateJavascript("window.PowercurveStartupToken=" + org.json.JSONObject.quote(bridge.startupToken) + ";window.PowercurveRecommendationToken=" + org.json.JSONObject.quote(bridge.recommendationToken) + ";" + JavaScriptBridge.install(context), null)
+                else if (!supportsBridge && !bridge.usingOfflineTarget) bridge.invalidate("Update Android System WebView to enable auto-end")
             }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -49,7 +49,7 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                 }
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                     bridge.offline.pageFailed = false
-                    if (bridge.offlineEndRep == null) bridge.invalidate()
+                    if (!bridge.usingOfflineTarget) bridge.invalidate()
                     url?.let(bridge::updateUrl)
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -64,7 +64,7 @@ fun TimerWebView(bridge: WebViewBridge, cachedWebView: WebView, modifier: Modifi
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                     if (request?.isForMainFrame == true) {
                         bridge.offline.pageFailed = true
-                        if (bridge.offlineEndRep == null) bridge.invalidate("Offline timer available")
+                        if (!bridge.usingOfflineTarget) bridge.invalidate("Offline timer available")
                     }
                 }
                 override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, response: WebResourceResponse?) {

@@ -10,14 +10,31 @@ import org.json.JSONObject
 /** Called only from an origin-restricted, main-frame WebMessageListener on the UI thread. */
 class WebViewBridge {
     val startupToken = java.util.UUID.randomUUID().toString()
+    var recommendationToken = java.util.UUID.randomUUID().toString(); private set
+    var usingOfflineTarget = false; private set
+    fun enterOfflineMode() { if(!usingOfflineTarget) {usingOfflineTarget=true;invalidate("Local timer")} }
+    fun returnToWebsite() {
+        usingOfflineTarget=false
+        recommendationToken=java.util.UUID.randomUUID().toString()
+        offlineEndRep=null
+        invalidate()
+        val script = "(() => { window.PowercurveRecommendationToken=" + JSONObject.quote(recommendationToken) + "; if(window.PowercurveCompanion) { window.PowercurveCompanion.refresh(); return true; } return false; })()"
+        webView?.evaluateJavascript(script) { if(it != "true") reloadPage() }
+    }
+    fun previewOfflineTarget(pounds: Double?, gripper: String, side: String, duration: Int?) {
+        enterOfflineMode()
+        onOfflineSnapshot(JSONObject().put("phase","setup").put("active",false)
+            .put("weight",pounds?.takeIf {it.isFinite() && it>0}?.let {"$it lb"})
+            .put("gripper",gripper).put("side",side).put("targetDuration",duration).put("url","offline://timer").toString())
+    }
     lateinit var offline: app.grip_gains_companion.service.offline.OfflineTraining
     var offlineEndRep: (() -> Unit)? = null
     private var acceptingOffline = false
-    fun onOfflineSnapshot(raw: String) { acceptingOffline=true; try { onSnapshot(raw) } finally { acceptingOffline=false } }
+    fun onOfflineSnapshot(raw: String) { usingOfflineTarget=true; acceptingOffline=true; try { onSnapshot(raw) } finally { acceptingOffline=false } }
     private var webView: WebView? = null
     private var heartbeat = 0L
     private var phase = "unavailable"
-    val webSetRunning: Boolean get() = offlineEndRep == null && phase in setOf("countdown", "rep", "rest") && SystemClock.elapsedRealtime() - heartbeat < 1500
+    val webSetRunning: Boolean get() = !usingOfflineTarget && offlineEndRep == null && phase in setOf("countdown", "rep", "rest") && SystemClock.elapsedRealtime() - heartbeat < 1500
     var repKey = ""
         private set
     val isFreshActive: Boolean get() = _buttonEnabled.value && SystemClock.elapsedRealtime() - heartbeat < 1500
@@ -69,7 +86,7 @@ class WebViewBridge {
         }
     }
     fun onSnapshot(raw: String) {
-        if (offlineEndRep != null && !acceptingOffline) return
+        if ((usingOfflineTarget || offlineEndRep != null) && !acceptingOffline) return
         if (raw.length > 8192) return
         val data = runCatching { JSONObject(raw) }.getOrNull() ?: return
         val next = data.optString("phase")

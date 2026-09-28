@@ -88,3 +88,17 @@ test('completed website reps retain minutes and seconds for offline capture', ()
   gripper.value='crusher';side.value='right';b.refresh();assert.equal(gripper.value,'crusher');assert.equal(side.value,'right');
   f.window.PowercurveStartupToken='session-two';b.refresh();assert.equal(gripper.value,'micro');assert.equal(side.value,'left');
  });
+
+test('recommended target is selected on entry and return, without overriding later manual input',()=>{
+ const f=fixture(), b=f.window.PowercurveCompanion, values=new Map(); let clicks=0, available=false;
+ f.context.sessionStorage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+ const original=f.context.document.querySelector;
+ const button={disabled:false,getClientRects:()=>[1],click(){clicks++;f.setWeight('42','lb');}};
+ f.context.document.querySelector=s=>s==='.timerZoneButton-recommended'?(available?button:null):original(s);
+ f.window.PowercurveRecommendationToken='entry';f.setWeight('');b.refresh();assert.equal(clicks,0);
+ available=true;assert.equal(b.refresh().weight,'42 lb');assert.equal(clicks,1);
+ f.setWeight('50','lb');assert.equal(b.refresh().weight,'50 lb');assert.equal(clicks,1);
+ f.window.PowercurveRecommendationToken='return';assert.equal(b.refresh().weight,'50 lb');assert.equal(clicks,1);
+ f.setWeight('');f.window.PowercurveRecommendationToken='empty-return';assert.equal(b.refresh().weight,'42 lb');assert.equal(clicks,2);
+ f.setPhase('rep');f.window.PowercurveRecommendationToken='busy';b.refresh();assert.equal(clicks,2);
+});

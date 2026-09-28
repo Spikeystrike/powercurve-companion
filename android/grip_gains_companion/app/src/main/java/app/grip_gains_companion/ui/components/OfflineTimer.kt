@@ -58,6 +58,9 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
         }
     }
     val lbs=weight.replace(',','.').toDoubleOrNull()?.let {if(useLbs)it else it/0.45359237}
+    LaunchedEffect(weight,useLbs,gripper,side,targetTime,training.active) {
+        training.previewTarget(lbs,gripper,side,targetTime.toIntOrNull())
+    }
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     Column(modifier.background(Color(0xFF1A2231)).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(if(training.online) "Local set timer" else "Offline set timer",style=MaterialTheme.typography.titleLarge)

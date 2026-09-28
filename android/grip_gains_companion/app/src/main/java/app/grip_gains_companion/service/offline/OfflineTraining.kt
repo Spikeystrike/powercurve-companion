@@ -163,8 +163,11 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
         bridge.offlineEndRep=null;bridge.invalidate("Set discarded")
     }
     fun cancelEmpty() { if(active?.getJSONArray("reps")?.length()!=0)return; if(save {it.remove("active");it.remove("webActive")}){active=null;phase="setup";bridge.offlineEndRep=null;bridge.invalidate()} }
-    fun useWebsite() { if(inProgress)return;open=false;pageFailed=false;bridge.offlineEndRep=null;bridge.reloadPage() }
-    fun openTimer() {open=true}
+    fun useWebsite() { if(inProgress)return;open=false;pageFailed=false;bridge.returnToWebsite() }
+    fun openTimer() {bridge.enterOfflineMode();open=true}
+    fun previewTarget(pounds: Double?, gripper: String, side: String, duration: Int?) {
+        if(active==null && showTimer) bridge.previewOfflineTarget(pounds,gripper,side,duration)
+    }
     fun accountSeen(id: String?, name: String) {
         account=id;accountName=name
         if(id!=null && store?.lastAccount!=id && save {it.put("lastAccount",id)}) refreshCurveMemory()

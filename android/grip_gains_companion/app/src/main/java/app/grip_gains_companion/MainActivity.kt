@@ -213,8 +213,8 @@ class MainActivity : ComponentActivity() {
             val enableCalibration by preferencesRepository.enableCalibration.collectAsState(initial = true)
             val enableTargetSound by preferencesRepository.enableTargetSound.collectAsState(initial = true)
 
-            // Powercurve's Weight field is authoritative; never reuse a stale override.
-            val effectiveTargetWeight = if (isBasicTimerPage) currentManualWeight else webWeight
+            // The active timer owns the target, including local setup before a set starts.
+            val effectiveTargetWeight = if (isBasicTimerPage && !webViewBridge.usingOfflineTarget) currentManualWeight else webWeight
 
             val currentForce by progressorHandler.currentForce.collectAsState()
             var previousForce by remember { mutableDoubleStateOf(0.0) }
