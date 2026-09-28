@@ -1,4 +1,4 @@
-# Powercurve for Android
+# Powercurve Companion
 
 Android companion for [Powercurve](https://powercurve.tantaluspath.com) with Bluetooth sensor support, a live force graph and offline training.
 
@@ -38,6 +38,8 @@ Without internet, use the **Offline set timer**. Bluetooth measurements and the 
 The offline graph shows the **last 60 sets per gripper and hand**, including locally saved sets waiting to sync. Older sets fade by their rank in the sequence, not by elapsed days. The newest set in each time zone uses its zone color and an outline. A set’s time and zone use its longest completed rep. Select a zone to see its latest set’s date/time, weight, hold time and calendar days ago. History remains visible even when no fitted curve is available.
 
 The zone with the oldest last set is preselected. Untrained zones come first; ties follow Endurance-to-Power order. Locally saved sets are included, and manual edits are preserved during cache updates.
+
+History refresh information is hidden while a local set is active. Real Force sets show **Save set** only after all reps finish, without a placeholder button.
 
 The timer starts with **Micro / Left** selected. Recovered unfinished sets keep their original gripper and hand.
 

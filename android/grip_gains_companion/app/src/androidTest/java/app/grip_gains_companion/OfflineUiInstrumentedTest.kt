@@ -262,6 +262,9 @@ class OfflineUiInstrumentedTest {
         ui.runOnUiThread {training.configureRealForce(true,"median",true,0.5,250)}
         ui.onNodeWithText("Start real force set").performScrollTo().assertIsEnabled().performClick()
         ui.onNodeWithText("Pull when ready").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Locked").assertDoesNotExist()
+        ui.onNodeWithText("Save set").assertDoesNotExist()
+        ui.onNodeWithText("History has not been refreshed yet.").assertDoesNotExist()
         assertEquals(0,training.active!!.getInt("countdown"))
         ui.runOnUiThread {
             val base=android.os.SystemClock.elapsedRealtime()
@@ -276,5 +279,6 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Save set").performScrollTo().performClick()
         assertEquals(22.0/0.45359237,training.queue().single().getDouble("weightLbs"),0.000001)
         ui.onNodeWithText("Rep 1: 22 kg · 2 s · set weight").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("History has not been refreshed yet.").assertExists()
     }
 }

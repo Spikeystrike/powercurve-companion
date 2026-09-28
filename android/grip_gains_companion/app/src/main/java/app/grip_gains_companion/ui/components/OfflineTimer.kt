@@ -64,10 +64,12 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     Column(modifier.background(Color(0xFF1A2231)).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(if(training.online) "Local set timer" else "Offline set timer",style=MaterialTheme.typography.titleLarge)
+        val active=training.active
+        if(active==null) {
         Text(if(training.historyCheckedAt>0) "History checked: "+DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(Date(training.historyCheckedAt)) else "History has not been refreshed yet.",style=MaterialTheme.typography.bodySmall)
         TextButton(onClick=training::refreshHistory,enabled=training.online && !training.refreshing){Text(if(training.refreshing) "Updating…" else "Update now")}
         if(training.refreshMessage.isNotEmpty()) Text(training.refreshMessage,style=MaterialTheme.typography.bodySmall)
-        val active=training.active
+        }
         if(active==null) {
             Text("Sets are saved on this phone and imported automatically when connected.",style=MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("micro","crusher","prime").forEach {item->FilterChip(selected=gripper==item,onClick={if(gripper!=item){gripper=item;weight="";reps="";targetTime=""}},label={Text(item.replaceFirstChar(Char::uppercase))})} }
@@ -132,9 +134,8 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             val complete=done>=active.getInt("plannedReps")
             val actionKey=active.getString("id")+":"+training.phase+":"+done
             if(complete) Button(onClick=training::finish,modifier=Modifier.fillMaxWidth()){Text("Save set")}
-            else if(training.phase=="rep" && training.isRealForce) Button(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()){Text("Measuring force")}
-            else if(training.phase=="rep") Button(onClick=training::endRep,modifier=Modifier.fillMaxWidth()){Text("End rep")}
-            else Button(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()){Text("Locked")}
+            else if(training.phase=="rep" && !training.isRealForce) Button(onClick=training::endRep,modifier=Modifier.fillMaxWidth()){Text("End rep")}
+            else if(!training.isRealForce) Button(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()){Text("Locked")}
             if(!complete) HoldToConfirm("Hold to save set now",enabled=done>0 && training.phase !in listOf("rep","save_failed"),resetKey=actionKey,action=training::finish)
             HoldToConfirm("Discard set without saving",resetKey=actionKey,action=training::discardSet)
         }
