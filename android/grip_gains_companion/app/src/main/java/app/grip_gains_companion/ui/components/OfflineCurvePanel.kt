@@ -26,11 +26,10 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight: Double?, history: List<OfflineHistorySet> = emptyList(), targetSeconds: Int? = null, select: (OfflineCurve.Match) -> Unit) {
+fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight: Double?, history: List<OfflineHistorySet> = emptyList(), targetSeconds: Int? = null, currentZone: Int? = null, selectZone: ((Int) -> Unit)? = null, select: (OfflineCurve.Match) -> Unit) {
     Text("Force curve",style=MaterialTheme.typography.titleMedium)
     val points=remember(history) {history.take(60)}
     if(curve==null) Text("No saved fitted curve for this gripper and hand. Connect and sign in to refresh it. Saved sets are shown when available.",style=MaterialTheme.typography.bodySmall)
-    if(curve==null && points.isEmpty()) return
     val unit=if(lbs) "lb" else "kg"
     val factor=if(lbs) 1.0 else 0.45359237
     val curveRange=remember(curve) {curve?.plotRange()}
@@ -53,12 +52,14 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     }} ?: emptyList()}
     val colors=remember {listOf(Color(0xFFD43B3D),Color(0xFFC44786),Color(0xFF5599FF),Color(0xFF65C936),Color(0xFFD4B344))}
     val estimate=remember(curve,lbs,weight) {weight?.takeIf {it.isFinite() && it>0}?.let {curve?.estimate(it,lbs)}}
-    val matches=remember(curve,lbs) {OfflineCurve.zones.indices.map {curve?.match(it,lbs)}}
+    val matches=remember(curve,lbs,history) {OfflineCurve.zones.indices.map {OfflineCurve.selection(curve,history,it,lbs)}}
     var zoneTouched by remember {mutableStateOf(false)}
     var selectedZone by remember {mutableStateOf<Int?>(OfflineHistorySet.oldestZone(history))}
-    LaunchedEffect(targetSeconds,estimate?.zone) {selectedZone=targetSeconds?.let {OfflineCurve.zone(it.toDouble())} ?: estimate?.zone?.let {OfflineCurve.zones.indexOf(it)} ?: selectedZone}
-    LaunchedEffect(history) {if(!zoneTouched && estimate==null) selectedZone=OfflineHistorySet.oldestZone(history)}
+    LaunchedEffect(currentZone) {if(currentZone!=null) selectedZone=currentZone}
+    LaunchedEffect(targetSeconds,estimate?.zone) {if(currentZone==null) selectedZone=targetSeconds?.let {OfflineCurve.zone(it.toDouble())} ?: estimate?.zone?.let {OfflineCurve.zones.indexOf(it)} ?: selectedZone}
+    LaunchedEffect(history) {if(currentZone==null && !zoneTouched && estimate==null) selectedZone=OfflineHistorySet.oldestZone(history)}
     val latestByZone=remember(history) {history.groupBy {it.zone}.mapValues {it.value.first()}}
+    if(curve!=null || points.isNotEmpty()) {
     Text("Hold time (s) vs weight ($unit)",style=MaterialTheme.typography.labelMedium)
     Row {
         Box(Modifier.width(64.dp).height(170.dp)) {
@@ -146,10 +147,11 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
     Text("${points.size} recent sets · older sets fade by order · outlined points: latest per time zone",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-history-count"))
     Text(inspected?.let {String.format(Locale.US,"Curve point: %.2f %s · %.1f s",it.weightPounds*factor,unit,it.seconds)}
         ?: if(curve!=null) "Tap the curve to set target weight and hold time." else "Saved sets are available without a fitted curve.",style=MaterialTheme.typography.bodySmall,modifier=Modifier.testTag("offline-curve-readout"))
+    }
     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
         OfflineCurve.zones.indices.reversed().forEach {index->
             val zone=OfflineCurve.zones[index];val match=matches[index]
-            FilterChip(selected=selectedZone==index,onClick={zoneTouched=true;selectedZone=index;match?.let(select)},label={Text(zone.label)})
+            FilterChip(selected=selectedZone==index,onClick={zoneTouched=true;selectedZone=index;if(selectZone!=null) selectZone(index) else match?.let(select)},label={Text(zone.label)})
         }
     }
     selectedZone?.let {index->
@@ -159,7 +161,7 @@ fun OfflineCurvePanel(curve: OfflineCurve?, savedAt: Long?, lbs: Boolean, weight
             String.format(Locale.US,"%.2f %s · %.1f s · %d days ago%s",last.pounds*factor,unit,last.hold,last.daysAgo(),if(last.pending) " · waiting to sync" else ""),style=MaterialTheme.typography.bodyMedium,modifier=Modifier.testTag("offline-last-zone-set"))
     }
     Text(estimate?.let {"${it.zone.label} · ${it.seconds} s estimated hold · ${it.zone.reps} recommended reps"}
-        ?: "Choose a zone to view its last set. Recommendations require supporting curve data.",style=MaterialTheme.typography.bodySmall)
+        ?: "Choose a zone to fill its standard reps. Without a supported curve, its latest saved weight and hold time are used when available.",style=MaterialTheme.typography.bodySmall)
     var time by rememberSaveable {mutableStateOf("")}
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(time,{time=it},label={Text("Match hold time (1–400 s)")},singleLine=true,modifier=Modifier.weight(1f))

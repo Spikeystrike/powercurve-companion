@@ -43,6 +43,10 @@ History refresh information is hidden while a local set is active. Real Force se
 
 The timer starts with **Micro / Left** selected. Recovered unfinished sets keep their original gripper and hand.
 
+Enable **Remember zone timing** in Settings to save local timer **Rest** and **Countdown** independently for each gripper and zone. Both hands share these timings. Valid edits are saved immediately and survive app restarts; unused combinations start with 10 seconds rest and 20 seconds countdown. Real Force still skips the countdown without overwriting the saved normal-set value.
+
+Zones are selectable even without a fitted curve. Selecting a zone fills its standard reps. Where a curve recommendation is unavailable, the latest saved set in that zone supplies weight and hold time, including pending offline sets. Weights remain specific to the selected gripper and hand; an untrained zone leaves weight and hold time empty.
+
 Curves are stored per account, gripper and hand. Connect once to cache a fitted curve; unavailable zones need more training data. The saved timestamp is shown, and pending sets affect the curve after synchronization and online recalculation.
 
 Saved sets and completed reps survive app restarts. An interrupted set can be resumed; an unfinished rep is not counted.

@@ -24,6 +24,9 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
  */
 class PreferencesRepository(private val context: Context) {
     private val dataStore = context.dataStore
+    private val rememberZoneTimingKey = booleanPreferencesKey("remember_zone_timing")
+    val rememberZoneTiming: Flow<Boolean> = dataStore.data.map { it[rememberZoneTimingKey] ?: false }
+    suspend fun setRememberZoneTiming(value: Boolean) = dataStore.edit { it[rememberZoneTimingKey] = value }
 
     // Keys
     private object Keys {

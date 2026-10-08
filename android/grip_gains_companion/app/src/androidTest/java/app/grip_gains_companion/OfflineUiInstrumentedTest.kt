@@ -55,11 +55,44 @@ class OfflineUiInstrumentedTest {
         ui.onNodeWithText("Micro").assertIsSelected()
         ui.onNodeWithText("Left").assertIsSelected()
     }
+    @Test fun pendingSetSuppliesWeightWithoutCurve() {
+        ui.runOnUiThread {
+            training.start("micro","left",50.0,1,10,0)
+            training.endRep()
+            training.finish()
+        }
+        ui.onNodeWithText("Power",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("22.68")
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("6")
+        ui.onNodeWithText("Endurance",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextEquals("Weight (kg)","")
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("4")
+    }
+    @Test fun zonesWithoutCurveFillRepsAndShareTimingsAcrossHands() {
+        ui.runOnUiThread {training.rememberZoneTiming=true}
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("4")
+        ui.onNodeWithText("Rest (0–600 s)").performScrollTo().performTextReplacement("45")
+        ui.onNodeWithText("Countdown (0–60 s)").performScrollTo().performTextReplacement("8")
+        ui.onNodeWithText("Power",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("6")
+        ui.onNodeWithText("Rest (0–600 s)").performScrollTo().assertTextContains("10")
+        ui.onNodeWithText("Endurance",useUnmergedTree=true).performScrollTo().performClick()
+        ui.onNodeWithText("Rest (0–600 s)").performScrollTo().assertTextContains("45")
+        ui.onNodeWithText("Right").performScrollTo().performClick()
+        ui.onNodeWithText("Rest (0–600 s)").performScrollTo().assertTextContains("45")
+        ui.onNodeWithText("Countdown (0–60 s)").performScrollTo().assertTextContains("8")
+        ui.onNodeWithText("Prime").performScrollTo().performClick()
+        ui.onNodeWithText("Rest (0–600 s)").performScrollTo().assertTextContains("10")
+        ui.onNodeWithText("Micro").performScrollTo().performClick()
+        ui.onNodeWithText("Rest (0–600 s)").performScrollTo().assertTextContains("45")
+    }
     @Test fun twoSetsCanBeCompletedAndRemainQueuedAcrossReopening() {
         ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
         ui.onNodeWithText("Reps (1–100)").performScrollTo().performTextReplacement("1")
         ui.onNodeWithText("Countdown (0–60 s)").performScrollTo().performTextReplacement("0")
         repeat(2) {
+            ui.onNodeWithText("Weight (kg)").performScrollTo().performTextReplacement("20")
+            ui.onNodeWithText("Reps (1–100)").performScrollTo().performTextReplacement("1")
             ui.onNodeWithText("Start set").performScrollTo().performClick()
             ui.onNodeWithText("End rep").performScrollTo().performClick()
             ui.onNodeWithText("Save set").performScrollTo().performClick()
@@ -87,7 +120,7 @@ class OfflineUiInstrumentedTest {
         assertEquals(59.42,bridge.targetWeight.value!!,0.00001)
         ui.onNodeWithText("Target hold (s, optional)").performScrollTo().assertTextContains("15")
         ui.onNodeWithText("Strength",useUnmergedTree=true).performScrollTo().performClick()
-        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextContains("25.00")
+        ui.onNodeWithText("Weight (kg)").performScrollTo().assertTextEquals("Weight (kg)","25")
         assertEquals(25.0,bridge.targetWeight.value!!,0.00001)
         ui.onNodeWithText("Reps (1–100)").assertTextContains("5")
         ui.onNodeWithText("Strength · 101 s estimated hold",substring=true).performScrollTo().assertIsDisplayed()
@@ -165,8 +198,9 @@ class OfflineUiInstrumentedTest {
             ui.onNodeWithText("Target hold (s, optional)").performScrollTo().performTextReplacement("90")
         }
         fun cleared() {
-            for(label in listOf("Weight (kg)","Reps (1–100)","Target hold (s, optional)"))
+            for(label in listOf("Weight (kg)","Target hold (s, optional)"))
                 ui.onNodeWithText(label).performScrollTo().assertTextEquals(label,"")
+            ui.onNodeWithText("Reps (1–100)").performScrollTo().assertTextContains("4")
             ui.onNodeWithText("Start set").performScrollTo().assertIsNotEnabled()
         }
         enter()

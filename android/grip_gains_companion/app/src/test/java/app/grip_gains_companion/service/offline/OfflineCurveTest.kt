@@ -11,6 +11,16 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk=[34], application=Application::class)
 class OfflineCurveTest {
+    @Test fun missingCurveUsesLatestZoneHistoryIncludingPendingSets() {
+        val latest=OfflineHistorySet("2026-10-08T10:00:00Z",50.0,90.0,"micro","left",listOf(90.0),true)
+        val older=latest.copy(pounds=40.0,hold=100.0,pending=false)
+        val history=listOf(latest,older)
+        val selection=OfflineCurve.selection(null,history,2,false)!!
+        assertEquals(50.0*0.45359237,selection.weight,0.000001)
+        assertEquals(90,selection.seconds)
+        assertEquals(5,selection.zone.reps)
+        assertNull(OfflineCurve.selection(null,history,4,true))
+    }
     private fun data()=JSONObject("""{"gripper":"crusher","params":{"a":400,"b":0.025,"x0":0,"c":0,"d":0},"points":[{"hold":40},{"hold":60},{"hold":100},{"hold":150},{"hold":230}],"zone_characteristic_times":{"power":40,"power_strength":60,"strength":100,"strength_endurance":150,"endurance":230}}""")
     @Test fun inverseMatchesWebsiteModel() {
         val curve=OfflineCurve(data())

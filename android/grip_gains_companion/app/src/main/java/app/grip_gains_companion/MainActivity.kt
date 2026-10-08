@@ -588,6 +588,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupEventHandlers() {
+        lifecycleScope.launch { preferencesRepository.rememberZoneTiming.collect { webViewBridge.offline.rememberZoneTiming = it } }
         lifecycleScope.launch {
             preferencesRepository.enableCalibration.collect { enabled ->
                 progressorHandler.enableCalibration = enabled

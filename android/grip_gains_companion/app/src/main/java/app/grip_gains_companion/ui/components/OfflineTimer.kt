@@ -45,12 +45,19 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
     val defaults=remember {training.state.optJSONObject("defaults")?.takeIf {it.optString("gripper")=="micro" && it.optString("side")=="left"}}
     var gripper by rememberSaveable {mutableStateOf("micro")}
     var side by rememberSaveable {mutableStateOf("left")}
+    var selectedZone by rememberSaveable {mutableStateOf(4)}
     var weight by rememberSaveable {mutableStateOf(defaults?.optDouble("weightLbs")?.let {displayNumber(if(useLbs) it else it*0.45359237)} ?: "")}
     var reps by rememberSaveable {mutableStateOf((defaults?.optInt("plannedReps") ?: 6).toString())}
     var rest by rememberSaveable {mutableStateOf((defaults?.optInt("rest") ?: 10).toString())}
     var countdown by rememberSaveable {mutableStateOf((defaults?.optInt("countdown") ?: 20).toString())}
     var targetTime by rememberSaveable {mutableStateOf(defaults?.optInt("targetDuration")?.takeIf {it>0}?.toString() ?: "")}
     var previousLbs by rememberSaveable {mutableStateOf(useLbs)}
+    LaunchedEffect(training.rememberZoneTiming,gripper,selectedZone) {
+        if(training.rememberZoneTiming) {
+            val timing=training.zoneTiming(gripper,selectedZone)
+            rest=timing.first.toString();countdown=timing.second.toString()
+        }
+    }
     LaunchedEffect(useLbs) {
         if(previousLbs!=useLbs) {
             weight.replace(',','.').toDoubleOrNull()?.let { weight=displayNumber(if(useLbs) it/0.45359237 else it*0.45359237) }
@@ -77,28 +84,33 @@ fun OfflineTimer(training: OfflineTraining, useLbs: Boolean, modifier: Modifier=
             var edited by rememberSaveable(gripper,side) {mutableStateOf(false)}
             val curve=training.curve(gripper,side)
             val history=remember(revision,gripper,side) {training.history(gripper,side)}
+            fun chooseZone(index: Int) {
+                selectedZone=index
+                val match=OfflineCurve.selection(curve,history,index,useLbs)
+                weight=match?.let {displayNumber(it.weight)} ?: ""
+                reps=OfflineCurve.zones[index].reps.toString()
+                targetTime=match?.seconds?.toString() ?: ""
+            }
             LaunchedEffect(curve,history,gripper,side) {
-                if(!edited) curve?.match(OfflineHistorySet.oldestZone(history),useLbs)?.let {match->
-                    weight=String.format(java.util.Locale.US,"%.2f",match.weight)
-                    reps=match.zone.reps.toString();targetTime=match.seconds.toString()
-                }
+                if(!edited) chooseZone(OfflineHistorySet.oldestZone(history))
             }
             key(gripper,side) {
-            OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull(),history,targetTime.toIntOrNull()) { match ->
+            OfflineCurvePanel(curve,training.curveSavedAt,useLbs,weight.replace(',','.').toDoubleOrNull(),history,targetTime.toIntOrNull(),selectedZone,{index->edited=true;chooseZone(index)}) { match ->
                 edited=true
+                selectedZone=OfflineCurve.zones.indexOf(match.zone)
                 weight=String.format(java.util.Locale.US,"%.2f",match.weight)
                 reps=match.zone.reps.toString()
                 targetTime=match.seconds.toString()
             }
             }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(weight,{edited=true;weight=decimalInput(it);val match=curve?.estimate(weight.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);targetTime=match?.seconds?.toString() ?: "";if(match!=null) reps=match.zone.reps.toString()},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(weight,{edited=true;weight=decimalInput(it);val match=curve?.estimate(weight.replace(',','.').toDoubleOrNull() ?: 0.0,useLbs);if(curve!=null) targetTime=match?.seconds?.toString() ?: "";if(match!=null) {reps=match.zone.reps.toString();selectedZone=OfflineCurve.zones.indexOf(match.zone)}},label={Text("Weight (${if(useLbs) "lb" else "kg"})")},singleLine=true,modifier=Modifier.weight(1f))
                 OutlinedTextField(reps,{edited=true;reps=it},label={Text("Reps (1–100)")},singleLine=true,modifier=Modifier.weight(1f))
             }
-            OutlinedTextField(targetTime,{edited=true;targetTime=it},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(targetTime,{edited=true;targetTime=it;it.toIntOrNull()?.takeIf {value->value in 1..3600}?.let {value->selectedZone=OfflineCurve.zone(value.toDouble())}},label={Text("Target hold (s, optional)")},singleLine=true,modifier=Modifier.fillMaxWidth())
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(rest,{rest=it},label={Text("Rest (0–600 s)")},singleLine=true,modifier=Modifier.weight(1f))
-                OutlinedTextField(countdown,{countdown=it},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(rest,{rest=it;training.saveZoneTiming(gripper,selectedZone,it.toIntOrNull(),null)},label={Text("Rest (0–600 s)")},singleLine=true,modifier=Modifier.weight(1f))
+                OutlinedTextField(countdown,{countdown=it;training.saveZoneTiming(gripper,selectedZone,null,it.toIntOrNull())},label={Text("Countdown (0–60 s)")},singleLine=true,modifier=Modifier.weight(1f))
             }
             Button(onClick={training.start(gripper,side,lbs!!,reps.toInt(),rest.toInt(),countdown.toInt(),targetTime.toIntOrNull())},enabled=(targetTime.isBlank() || targetTime.toIntOrNull() in 1..3600) && training.available && lbs!=null && lbs.isFinite() && lbs>0 && reps.toIntOrNull() in 1..100 && rest.toIntOrNull() in 0..600 && countdown.toIntOrNull() in 0..60,modifier=Modifier.fillMaxWidth()){Text("Start set")}
             if(training.realForceEnabled) {

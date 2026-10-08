@@ -35,6 +35,22 @@ class OfflineTraining(private val context: Context, private val bridge: WebViewB
     private var webWasOffline = false
     private var webSaved = false
     var realForceEnabled by observed(false); private set
+    var rememberZoneTiming by observed(false)
+    fun zoneTiming(gripper: String, zone: Int): Pair<Int,Int> {
+        val saved=state.optJSONObject("zoneTiming")?.optJSONObject(gripper+":"+OfflineCurve.zones[zone].key)
+        return (saved?.optInt("rest",10) ?: 10) to (saved?.optInt("countdown",20) ?: 20)
+    }
+    fun saveZoneTiming(gripper: String, zone: Int, rest: Int?, countdown: Int?) {
+        if(!rememberZoneTiming || gripper !in listOf("micro","crusher","prime") || zone !in OfflineCurve.zones.indices) return
+        val current=zoneTiming(gripper,zone)
+        val nextRest=rest?.takeIf {it in 0..600} ?: current.first
+        val nextCountdown=countdown?.takeIf {it in 0..60} ?: current.second
+        if(current==(nextRest to nextCountdown)) return
+        save { state ->
+            val timings=state.optJSONObject("zoneTiming") ?: JSONObject().also {state.put("zoneTiming",it)}
+            timings.put(gripper+":"+OfflineCurve.zones[zone].key,JSONObject().put("rest",nextRest).put("countdown",nextCountdown))
+        }
+    }
     var realForceMethod by observed("median"); private set
     var forceMeterConnected by observed(false); private set
     var realResults by observed<List<RealForceResult>>(emptyList()); private set

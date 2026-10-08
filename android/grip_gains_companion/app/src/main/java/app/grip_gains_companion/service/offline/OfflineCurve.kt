@@ -11,6 +11,10 @@ class OfflineCurve(private val data: JSONObject) {
     companion object {
         val zones = listOf(Zone("power", "Power", 6), Zone("power_strength", "Power Strength", 5), Zone("strength", "Strength", 5), Zone("strength_endurance", "Strength Endurance", 4), Zone("endurance", "Endurance", 4))
         fun zone(seconds: Double): Int = when { seconds < 48 -> 0; seconds < 82 -> 1; seconds < 129 -> 2; seconds < 180 -> 3; else -> 4 }
+        fun selection(curve: OfflineCurve?, history: List<OfflineHistorySet>, index: Int, lbs: Boolean): Match? =
+            curve?.match(index,lbs) ?: history.firstOrNull {it.zone==index}?.let {
+                Match(it.pounds*(if(lbs) 1.0 else 0.45359237),it.hold.roundToInt().coerceIn(1,3600),zones[index])
+            }
     }
     private val params = data.getJSONObject("params")
     private val a=params.getDouble("a")
