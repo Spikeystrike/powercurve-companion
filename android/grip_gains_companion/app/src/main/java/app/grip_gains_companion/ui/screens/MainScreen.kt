@@ -84,6 +84,10 @@ fun MainScreen(
     val offline = webViewBridge.offline
     val offlineTimer by remember(offline) { offline.revision.map { offline.showTimer }.distinctUntilChanged() }.collectAsState(initial=offline.showTimer)
     val context = LocalContext.current
+    val frezReady by bluetoothManager.frezReady.collectAsState()
+    val frezStatus by bluetoothManager.frezStatus.collectAsState()
+    val sensorType by bluetoothManager.connectedDeviceType.collectAsState()
+    val frezNeedsZero=sensorType==app.grip_gains_companion.model.DeviceType.FREZ_DYNO && !frezReady
     val isToolbarVisible by webViewBridge.isToolbarVisible.collectAsState()
     val isLive by webViewBridge.buttonEnabled.collectAsState()
     val bridgeStatus by webViewBridge.status.collectAsState()
@@ -475,6 +479,13 @@ fun MainScreen(
 
                         val contentAlpha = ((sheetHeightPx.value - level1Px) / (level2Px - level1Px)).coerceIn(0f, 1f)
 
+                        if(frezNeedsZero) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically) {
+                                Text(frezStatus,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+                                TextButton(onClick=bluetoothManager::zeroFrez) {Text("Zero FREZ")}
+                            }
+                        }
+
                         if (showForceGraph && contentAlpha > 0f) {
                             Column(modifier = Modifier.alpha(contentAlpha)) {
                                 Box(
@@ -491,7 +502,7 @@ fun MainScreen(
 
                                         val displayWeight = if (useLbs) currentForce * 2.20462 else currentForce
                                         Text(
-                                            text = "${String.format(java.util.Locale.US, "%.1f", displayWeight)} ${if (useLbs) "Lbs" else "Kg"}",
+                                            text = if(frezNeedsZero) "—" else "${String.format(java.util.Locale.US, "%.1f", displayWeight)} ${if (useLbs) "Lbs" else "Kg"}",
                                             style = MaterialTheme.typography.displayLarge.copy(
                                                 fontWeight = FontWeight.Black,
                                                 fontSize = 64.sp,

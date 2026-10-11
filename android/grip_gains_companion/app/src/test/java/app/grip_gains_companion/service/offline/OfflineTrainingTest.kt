@@ -22,7 +22,7 @@ class OfflineTrainingTest {
     @Test fun zoneTimingsAreOptInIndependentAndPersistAcrossRestarts() {
         val (t,_)=training()
         t.saveZoneTiming("micro",4,45,8)
-        assertEquals(10 to 20,t.zoneTiming("micro",4))
+        assertEquals(20 to 20,t.zoneTiming("micro",4))
         t.rememberZoneTiming=true
         t.saveZoneTiming("micro",4,45,8)
         t.saveZoneTiming("micro",0,90,5)
@@ -32,7 +32,7 @@ class OfflineTrainingTest {
         assertEquals(45 to 8,restored.zoneTiming("micro",4))
         assertEquals(90 to 5,restored.zoneTiming("micro",0))
         assertEquals(120 to 0,restored.zoneTiming("prime",4))
-        assertEquals(10 to 20,restored.zoneTiming("crusher",4))
+        assertEquals(20 to 20,restored.zoneTiming("crusher",4))
     }
     private val context get() = RuntimeEnvironment.getApplication()
     @Before fun clearStore() { File(context.filesDir,"offline-training.json").delete(); File(context.filesDir,"offline-training.json.bak").delete() }

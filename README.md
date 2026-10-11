@@ -43,7 +43,7 @@ History refresh information is hidden while a local set is active. Real Force se
 
 The timer starts with **Micro / Left** selected. Recovered unfinished sets keep their original gripper and hand.
 
-Enable **Remember zone timing** in Settings to save local timer **Rest** and **Countdown** independently for each gripper and zone. Both hands share these timings. Valid edits are saved immediately and survive app restarts; unused combinations start with 10 seconds rest and 20 seconds countdown. Real Force still skips the countdown without overwriting the saved normal-set value.
+Enable **Remember zone timing** in Settings to save local timer **Rest** and **Countdown** independently for each gripper and zone. Both hands share these timings. Valid edits are saved immediately and survive app restarts; unused combinations start with 20 seconds rest and 20 seconds countdown. Real Force still skips the countdown without overwriting the saved normal-set value.
 
 Zones are selectable even without a fitted curve. Selecting a zone fills its standard reps. Where a curve recommendation is unavailable, the latest saved set in that zone supplies weight and hold time, including pending offline sets. Weights remain specific to the selected gripper and hand; an untrained zone leaves weight and hold time empty.
 
@@ -76,6 +76,8 @@ The key is encrypted using Android Keystore and excluded from backups. It is sen
 Opening **Select Tension Source** searches across supported device types, including when a WH-C06 was previously selected or is still connected. Switching the scan may take up to eight seconds due to Android scan throttling. The API key is needed to connect, not to discover the Dyno.
 
 Keep the sensor unloaded while zeroing its first 100 samples. With **Auto calibrate on connect** off, tap **Zero FREZ** in Settings after connecting; measurements remain withheld until manual zeroing finishes. After zeroing, readings feed the normal force graph, force-drop detection and Real Force sets. Invalid packets and duplicate timestamps are ignored rather than converted into zero force.
+
+Before zeroing finishes, the force panel shows the FREZ status and a **Zero FREZ** shortcut. Its force readout displays **—**, since no measured value is available yet.
 
 Supports protocol v1 (74-byte packets, nine ADC/time pairs, MTU at least 77). Implementation was checked against the public [Grip Connect FREZ protocol implementation](https://github.com/Stevie-Ray/hangtime-grip-connect/blob/main/packages/core/src/models/device/frez-dyno.model.ts). Actual FREZ hardware and a live personal developer key have not yet been tested.
 

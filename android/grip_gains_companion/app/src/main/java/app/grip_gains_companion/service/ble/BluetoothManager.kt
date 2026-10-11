@@ -81,6 +81,8 @@ class BluetoothManager(private val context: Context) {
     val frezKeyConfigured=_frezKeyConfigured.asStateFlow()
     private val _frezStatus=MutableStateFlow("")
     val frezStatus=_frezStatus.asStateFlow()
+    private val _frezReady=MutableStateFlow(false)
+    val frezReady=_frezReady.asStateFlow()
     var autoCalibrate=false
     fun saveFrezKey(value: String): Boolean = try {
         frezKeyStore.save(value);_frezKeyConfigured.value=value.trim().isNotEmpty()
@@ -88,7 +90,9 @@ class BluetoothManager(private val context: Context) {
         _frezStatus.value=if(value.isBlank()) "FREZ developer key removed." else "FREZ developer key saved. Connect your registered device."
         true
     } catch(_: Exception) {_frezStatus.value="Could not save FREZ key. Use a valid key and try again.";false}
-    fun zeroFrez() {frezConnection?.tare()}
+    fun zeroFrez() {
+        if(frezConnection!=null) {_frezReady.value=false;_receivingSamples.value=false;frezConnection?.tare()}
+    }
 
     private var hardwareUnitIsLbs: Boolean = false
 
@@ -319,6 +323,7 @@ class BluetoothManager(private val context: Context) {
         _receivingSamples.value=false
         if (!hasBlePermission()) return
         frezConnection?.close();frezConnection=null
+        _frezReady.value=false
         whc06Service?.stop();whc06Service=null
         pitchSixService?.stop();pitchSixService=null
         _connectedDeviceName.value=null;_connectedDeviceType.value=null;_connectedDeviceAddress.value=null
@@ -346,12 +351,13 @@ class BluetoothManager(private val context: Context) {
                         prefs.edit().putString(KEY_LAST_CONNECTED_DEVICE,device.address).apply()
                         _connectionState.value=ConnectionState.Connected
                     },lost={
+                        _frezReady.value=false
                         _frezStatus.value="FREZ connection lost. Reconnecting…"
                         _receivingSamples.value=false
                         if(shouldAutoReconnect) {_connectionState.value=ConnectionState.Reconnecting;scheduleRetry()}
                         else _connectionState.value=ConnectionState.Disconnected
-                    },failed={_connectionState.value=ConnectionState.Disconnected;_receivingSamples.value=false;_connectedDeviceType.value=null},
-                    sample={kg,time->reportSample(kg,time)})
+                    },failed={_frezReady.value=false;_connectionState.value=ConnectionState.Disconnected;_receivingSamples.value=false;_connectedDeviceType.value=null},
+                    sample={kg,time->_frezReady.value=true;reportSample(kg,time)})
                 frezConnection?.connect(context,remote)
             }
             DeviceType.WEIHENG_WHC06 -> connectWHC06(device)
@@ -413,6 +419,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun disconnect(preserveAutoReconnect: Boolean = false) {
+        _frezReady.value=false
         frezConnection?.close();frezConnection=null
         sampleHandler.removeCallbacks(sampleExpired);_receivingSamples.value=false
         shouldAutoReconnect = false

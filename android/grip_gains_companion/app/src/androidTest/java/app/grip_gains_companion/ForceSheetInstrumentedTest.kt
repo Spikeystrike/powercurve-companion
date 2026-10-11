@@ -42,6 +42,20 @@ class ForceSheetInstrumentedTest {
         }}
         fun height()=ui.onNodeWithTag("force-sheet").getUnclippedBoundsInRoot().let {it.bottom.value-it.top.value}
         ui.waitForIdle();assertTrue(height()>200f)
+        @Suppress("UNCHECKED_CAST")
+        fun <T> state(name: String)=BluetoothManager::class.java.getDeclaredField(name).apply {isAccessible=true}.get(manager) as MutableStateFlow<T>
+        ui.runOnUiThread {
+            state<app.grip_gains_companion.model.ConnectionState>("_connectionState").value=app.grip_gains_companion.model.ConnectionState.Connected
+            state<app.grip_gains_companion.model.DeviceType?>("_connectedDeviceType").value=app.grip_gains_companion.model.DeviceType.FREZ_DYNO
+            state<String>("_frezStatus").value="Unload the sensor and tap Zero FREZ."
+        }
+        ui.onNodeWithText("Zero FREZ").assertExists()
+        ui.onNodeWithText("Unload the sensor and tap Zero FREZ.").assertExists()
+        ui.onNodeWithText("—").assertExists()
+        ui.onNodeWithText("0.0 Kg").assertDoesNotExist()
+        ui.runOnUiThread {state<Boolean>("_frezReady").value=true}
+        ui.onNodeWithText("Zero FREZ").assertDoesNotExist()
+        ui.onNodeWithText("0.0 Kg").assertExists()
         ui.onNodeWithTag("force-sheet-handle").performTouchInput {swipeDown(startY=centerY,endY=centerY+250f,durationMillis=300)}
         ui.waitForIdle();assertTrue(height()<160f)
         ui.runOnUiThread {bridge.offline.start("micro","left",40.0,2,60,0)}

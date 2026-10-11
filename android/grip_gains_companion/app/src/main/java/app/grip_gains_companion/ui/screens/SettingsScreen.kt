@@ -356,7 +356,7 @@ fun SettingsScreen(
                         Text("Remember zone timing",modifier=Modifier.weight(1f))
                         Switch(checked=rememberZoneTiming,onCheckedChange={coroutineScope.launch {preferencesRepository.setRememberZoneTiming(it)}})
                     }
-                    Text("Remember local timer rest and countdown separately for each gripper and zone. Left and right share these timings. New combinations use 10 s rest and 20 s countdown.",style=MaterialTheme.typography.bodySmall)
+                    Text("Remember local timer rest and countdown separately for each gripper and zone. Left and right share these timings. New combinations use 20 s rest and 20 s countdown.",style=MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment=Alignment.CenterVertically) {
                         Text("Real Force",modifier=Modifier.weight(1f))
                         Switch(checked=realForceEnabled,onCheckedChange={coroutineScope.launch {preferencesRepository.setRealForceEnabled(it)}})
