@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 if (!force.isFinite()) return@launch
                 calibrationPreferencesReady.await()
+                progressorHandler.enableCalibration=bluetoothManager.autoCalibrate && bluetoothManager.connectedDeviceType.value!=app.grip_gains_companion.model.DeviceType.FREZ_DYNO
                 progressorHandler.processSample(force, timestamp)
                 val measuredKg = progressorHandler.currentForce.value
                 if (isoSessionManager.isRepActive) isoSessionManager.addSample(measuredKg)
@@ -412,7 +413,8 @@ class MainActivity : ComponentActivity() {
                                     onDisconnect = { bluetoothManager.disconnect() },
                                     onConnectDevice = { bluetoothManager.restartScanning(); navController.popBackStack() },
                                     onRecalibrate = {
-                                        progressorHandler.recalibrate()
+                                        if(bluetoothManager.connectedDeviceType.value==app.grip_gains_companion.model.DeviceType.FREZ_DYNO) bluetoothManager.zeroFrez()
+                                        else progressorHandler.recalibrate()
                                         lifecycleScope.launch { snackbarHostState.showSnackbar("Scale Zeroed") }
                                     },
                                     onViewLogs = { navController.navigate("logs") },
@@ -591,6 +593,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { preferencesRepository.rememberZoneTiming.collect { webViewBridge.offline.rememberZoneTiming = it } }
         lifecycleScope.launch {
             preferencesRepository.enableCalibration.collect { enabled ->
+                bluetoothManager.autoCalibrate=enabled
                 progressorHandler.enableCalibration = enabled
                 calibrationPreferencesReady.complete(Unit)
             }

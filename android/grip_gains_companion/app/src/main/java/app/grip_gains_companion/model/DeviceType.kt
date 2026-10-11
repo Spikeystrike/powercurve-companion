@@ -9,13 +9,15 @@ import app.grip_gains_companion.config.AppConstants
 enum class DeviceType {
     TINDEQ_PROGRESSOR,
     PITCH_SIX_FORCE_BOARD,
-    WEIHENG_WHC06;
+    WEIHENG_WHC06,
+    FREZ_DYNO;
 
     val displayName: String
         get() = when (this) {
             TINDEQ_PROGRESSOR -> "Tindeq Progressor"
             PITCH_SIX_FORCE_BOARD -> "PitchSix Force Board"
             WEIHENG_WHC06 -> "Weiheng WH-C06"
+            FREZ_DYNO -> "FREZ Dyno"
         }
 
     val shortName: String
@@ -23,6 +25,7 @@ enum class DeviceType {
             TINDEQ_PROGRESSOR -> "Tindeq"
             PITCH_SIX_FORCE_BOARD -> "PitchSix"
             WEIHENG_WHC06 -> "WH-C06"
+            FREZ_DYNO -> "FREZ"
         }
 
     /**
@@ -30,7 +33,7 @@ enum class DeviceType {
      */
     val usesGATTConnection: Boolean
         get() = when (this) {
-            TINDEQ_PROGRESSOR, PITCH_SIX_FORCE_BOARD -> true
+            TINDEQ_PROGRESSOR, PITCH_SIX_FORCE_BOARD, FREZ_DYNO -> true
             WEIHENG_WHC06 -> false
         }
 
@@ -39,6 +42,8 @@ enum class DeviceType {
          * Detect device type from scan result
          */
         fun detect(scanResult: ScanResult): DeviceType? {
+            if(scanResult.scanRecord?.deviceName?.startsWith("FrezDyno-",true)==true ||
+                scanResult.scanRecord?.serviceUuids?.any {it.uuid==app.grip_gains_companion.service.ble.FrezDynoConnection.SERVICE}==true) return FREZ_DYNO
             val deviceName = try {
                 scanResult.device.name
             } catch (e: SecurityException) {
@@ -46,6 +51,7 @@ enum class DeviceType {
             }
 
             // Tindeq: name starts with "Progressor"
+            if(deviceName?.startsWith("FrezDyno-",true)==true) return FREZ_DYNO
             if (deviceName?.startsWith("Progressor") == true) {
                 return TINDEQ_PROGRESSOR
             }

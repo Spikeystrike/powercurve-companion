@@ -66,6 +66,20 @@ class BluetoothManager(private val context: Context) {
 
     private var pitchSixService: PitchSixService? = null
     private var whc06Service: WHC06Service? = null
+    private var frezConnection: FrezDynoConnection? = null
+    private val frezKeyStore=FrezKeyStore(context)
+    private val _frezKeyConfigured=MutableStateFlow(frezKeyStore.read().isNotEmpty())
+    val frezKeyConfigured=_frezKeyConfigured.asStateFlow()
+    private val _frezStatus=MutableStateFlow("")
+    val frezStatus=_frezStatus.asStateFlow()
+    var autoCalibrate=false
+    fun saveFrezKey(value: String): Boolean = try {
+        frezKeyStore.save(value);_frezKeyConfigured.value=value.trim().isNotEmpty()
+        if(pendingDevice?.type==DeviceType.FREZ_DYNO) disconnect()
+        _frezStatus.value=if(value.isBlank()) "FREZ developer key removed." else "FREZ developer key saved. Connect your registered device."
+        true
+    } catch(_: Exception) {_frezStatus.value="Could not save FREZ key. Use a valid key and try again.";false}
+    fun zeroFrez() {frezConnection?.tare()}
 
     private var hardwareUnitIsLbs: Boolean = false
 
@@ -287,8 +301,16 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun connect(device: ForceDevice) {
+        if(device.type==DeviceType.FREZ_DYNO && frezKeyStore.read().isBlank()) {
+            _frezStatus.value="Enter your FREZ developer API key in Settings before connecting."
+            return
+        }
         _receivingSamples.value=false
         if (!hasBlePermission()) return
+        frezConnection?.close();frezConnection=null
+        whc06Service?.stop();whc06Service=null
+        pitchSixService?.stop();pitchSixService=null
+        _connectedDeviceName.value=null;_connectedDeviceType.value=null;_connectedDeviceAddress.value=null
         stopScanning()
         cancelRetryTimer()
 
@@ -302,6 +324,25 @@ class BluetoothManager(private val context: Context) {
         _connectionState.value = ConnectionState.Connecting
 
         when (device.type) {
+            DeviceType.FREZ_DYNO -> {
+                val remote=bluetoothAdapter?.getRemoteDevice(device.address) ?: return
+                frezConnection=FrezDynoConnection(frezKeyStore.read(),autoCalibrate,
+                    status={_frezStatus.value=it},
+                    connected={
+                        connectionHasSample=false;retryCount=0
+                        _connectedDeviceName.value=device.name;_connectedDeviceAddress.value=device.address;_connectedDeviceType.value=device.type
+                        lastConnectedDeviceAddress=device.address
+                        prefs.edit().putString(KEY_LAST_CONNECTED_DEVICE,device.address).apply()
+                        _connectionState.value=ConnectionState.Connected
+                    },lost={
+                        _frezStatus.value="FREZ connection lost. Reconnecting…"
+                        _receivingSamples.value=false
+                        if(shouldAutoReconnect) {_connectionState.value=ConnectionState.Reconnecting;scheduleRetry()}
+                        else _connectionState.value=ConnectionState.Disconnected
+                    },failed={_connectionState.value=ConnectionState.Disconnected;_receivingSamples.value=false;_connectedDeviceType.value=null},
+                    sample={kg,time->reportSample(kg,time)})
+                frezConnection?.connect(context,remote)
+            }
             DeviceType.WEIHENG_WHC06 -> connectWHC06(device)
             else -> {
                 val bluetoothDevice = bluetoothAdapter?.getRemoteDevice(device.address)
@@ -361,6 +402,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun disconnect(preserveAutoReconnect: Boolean = false) {
+        frezConnection?.close();frezConnection=null
         sampleHandler.removeCallbacks(sampleExpired);_receivingSamples.value=false
         shouldAutoReconnect = false
         cancelRetryTimer()
@@ -393,6 +435,7 @@ class BluetoothManager(private val context: Context) {
 
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if(gatt!==bluetoothGatt) return
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     retryCount = 0
@@ -544,6 +587,7 @@ class BluetoothManager(private val context: Context) {
             if (shouldAutoReconnect) {
                 _connectionState.value = ConnectionState.Reconnecting
                 when (device.type) {
+                    DeviceType.FREZ_DYNO -> connect(device)
                     DeviceType.WEIHENG_WHC06 -> connectWHC06(device)
                     else -> {
                         bluetoothGatt?.disconnect()

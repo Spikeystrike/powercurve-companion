@@ -6,7 +6,7 @@ Android companion for [Powercurve](https://powercurve.tantaluspath.com) with Blu
 
 1. Install the APK on **Android 10 or newer** and allow Bluetooth permissions. Android 10/11 also requires location services for device discovery.
 2. Sign in to Powercurve inside the app.
-3. Select a **Tindeq Progressor**, **PitchSix Force Board** or **Weiheng WH-C06** from the Bluetooth menu. If **Auto calibrate on connect** is enabled, keep the sensor unloaded during the five-second calibration. Manual recalibration remains available when it is disabled.
+3. Select a **Tindeq Progressor**, **PitchSix Force Board**, **Weiheng WH-C06** or **FREZ Dyno** from the Bluetooth menu. If **Auto calibrate on connect** is enabled, keep the sensor unloaded during calibration. Manual recalibration remains available when it is disabled. FREZ requires the developer setup below.
 4. Enter your target in the timer's **Weight** field. The graph and target feedback follow this weight. Display units can be kg or lb.
 5. Start a set. View the live force graph and end reps manually or use automatic force-drop detection.
 6. When training online, tap **Save session** after the set.
@@ -67,7 +67,17 @@ The background history connection retries after a page-load failure even when no
 
 Online history refreshes also remove deleted or hidden imported sets from the offline chart. Pending unsynchronized sets remain on the phone. Keep the app online and signed in for a history refresh after deleting a set (normally within about 30 seconds).
 
-## WH-C06 setup
+## FREZ Dyno setup
+
+Obtain your individual developer API key and register your Dyno through the [FREZ Developer Program](https://developers.frez.app/en). In **Settings → FREZ Dyno**, enter the key and tap **Save FREZ key**, then select your **FrezDyno-…** device from the Bluetooth device list.
+
+The key is encrypted using Android Keystore and excluded from backups. It is sent only to the official FREZ coefficient endpoint, with the device serial number. Each connection requires internet access to load its calibration factor; an established measurement stream uses Bluetooth. Saving or removing the key disconnects an active FREZ connection.
+
+Keep the sensor unloaded while zeroing its first 100 samples. With **Auto calibrate on connect** off, tap **Zero FREZ** in Settings after connecting; measurements remain withheld until manual zeroing finishes. After zeroing, readings feed the normal force graph, force-drop detection and Real Force sets. Invalid packets and duplicate timestamps are ignored rather than converted into zero force.
+
+Supports protocol v1 (74-byte packets, nine ADC/time pairs, MTU at least 77). Implementation was checked against the public [Grip Connect FREZ protocol implementation](https://github.com/Stevie-Ray/hangtime-grip-connect/blob/main/packages/core/src/models/device/frez-dyno.model.ts). Actual FREZ hardware and a live personal developer key have not yet been tested.
+
+## WH-C06 connection
 
 After selecting the scale once, the app remembers it across restarts and waits for its readings even if the scale is switched on later. Turning the scale off and on does not require restarting the app. Failed or silent scans restart after 30 seconds. Tapping the Bluetooth status requests a fresh scan when disconnected; rapid taps are spaced by at least 8 seconds. Discovery also lists WH-C06 devices advertising from a different address; select the device from the list if its address changed. Scan starts, failures and discovered devices appear in the app logs.
 
