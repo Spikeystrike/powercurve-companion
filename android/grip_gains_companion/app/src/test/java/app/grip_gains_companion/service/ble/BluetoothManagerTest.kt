@@ -21,6 +21,40 @@ import java.time.Duration
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class BluetoothManagerTest {
+    @Test fun selectingDeviceFindsFrezWhileWaitingForSavedWhc06() = checkFrezDiscovery(false)
+    @Test fun selectingDeviceFindsFrezWhileWhc06IsConnected() = checkFrezDiscovery(true)
+    private fun checkFrezDiscovery(connected: Boolean) {
+        val app=RuntimeEnvironment.getApplication()
+        shadowOf(app).grantPermissions(android.Manifest.permission.BLUETOOTH_SCAN,android.Manifest.permission.BLUETOOTH_CONNECT)
+        val adapter=BluetoothAdapter.getDefaultAdapter()
+        shadowOf(adapter).setState(BluetoothAdapter.STATE_ON)
+        val prefs=app.getSharedPreferences("bluetooth_prefs",Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("last_connected_device","00:11:22:33:44:55")
+            .putString("last_connected_type",DeviceType.WEIHENG_WHC06.name).commit()
+        val scanner=shadowOf(adapter.bluetoothLeScanner)
+        val parser=ScanRecord::class.java.getDeclaredMethod("parseFromBytes",ByteArray::class.java).apply {isAccessible=true}
+        val name="FrezDyno-123456".toByteArray()
+        val record=parser.invoke(null,byteArrayOf((name.size+1).toByte(),9)+name) as ScanRecord
+        val frez=ScanResult(adapter.getRemoteDevice("00:11:22:33:44:66"),record,-50,1_000_000)
+        scanner.addScanResult(frez)
+        val manager=BluetoothManager(app)
+        manager.startScanning()
+        assertTrue(scanner.activeScans.single().scanFilters().isNotEmpty())
+        assertTrue(manager.discoveredDevices.value.none {it.type==DeviceType.FREZ_DYNO})
+        if(connected) {
+            val payload=ByteArray(15).apply {this[10]=7;this[11]=0xd0.toByte();this[14]=1}
+            val whcRecord=parser.invoke(null,byteArrayOf(18,0xff.toByte(),0,1)+payload) as ScanRecord
+            scanner.scanCallbacks.single().onScanResult(1,ScanResult(adapter.getRemoteDevice("00:11:22:33:44:55"),whcRecord,-50,1_000_000))
+            assertEquals(ConnectionState.Connected,manager.connectionState.value)
+        }
+        manager.beginDeviceSelection()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(8))
+        assertTrue(scanner.activeScans.single().scanFilters().isEmpty())
+        assertEquals("FrezDyno-123456",manager.discoveredDevices.value.single {it.type==DeviceType.FREZ_DYNO}.name)
+        if(connected) assertEquals(ConnectionState.Connected,manager.connectionState.value)
+        manager.endDeviceSelection()
+        manager.disconnect(preserveAutoReconnect=true)
+    }
     @Test fun savedScaleCanStartLaterWithoutAdvertisingItsNameAndReconnectAfterSilence() {
         val app = RuntimeEnvironment.getApplication()
         shadowOf(app).grantPermissions(android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_CONNECT)

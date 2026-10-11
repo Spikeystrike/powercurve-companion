@@ -73,6 +73,8 @@ Obtain your individual developer API key and register your Dyno through the [FRE
 
 The key is encrypted using Android Keystore and excluded from backups. It is sent only to the official FREZ coefficient endpoint, with the device serial number. Each connection requires internet access to load its calibration factor; an established measurement stream uses Bluetooth. Saving or removing the key disconnects an active FREZ connection.
 
+Opening **Select Tension Source** searches across supported device types, including when a WH-C06 was previously selected or is still connected. Switching the scan may take up to eight seconds due to Android scan throttling. The API key is needed to connect, not to discover the Dyno.
+
 Keep the sensor unloaded while zeroing its first 100 samples. With **Auto calibrate on connect** off, tap **Zero FREZ** in Settings after connecting; measurements remain withheld until manual zeroing finishes. After zeroing, readings feed the normal force graph, force-drop detection and Real Force sets. Invalid packets and duplicate timestamps are ignored rather than converted into zero force.
 
 Supports protocol v1 (74-byte packets, nine ADC/time pairs, MTU at least 77). Implementation was checked against the public [Grip Connect FREZ protocol implementation](https://github.com/Stevie-Ray/hangtime-grip-connect/blob/main/packages/core/src/models/device/frez-dyno.model.ts). Actual FREZ hardware and a live personal developer key have not yet been tested.

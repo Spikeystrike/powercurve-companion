@@ -456,6 +456,10 @@ fun SettingsScreen(
         }
 
         if (showTensionSheet) {
+            DisposableEffect(bluetoothManager) {
+                bluetoothManager.beginDeviceSelection()
+                onDispose {bluetoothManager.endDeviceSelection()}
+            }
             AlertDialog(
                 onDismissRequest = { showTensionSheet = false },
                 shape = RoundedCornerShape(28.dp),

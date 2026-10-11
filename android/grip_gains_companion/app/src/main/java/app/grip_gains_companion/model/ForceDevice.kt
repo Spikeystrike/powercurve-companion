@@ -41,7 +41,7 @@ data class ForceDevice(
             }
 
             val deviceName = try {
-                scanResult.device.name
+                scanResult.scanRecord?.deviceName?.takeIf {it.isNotBlank()} ?: scanResult.device.name
             } catch (e: SecurityException) {
                 null
             }

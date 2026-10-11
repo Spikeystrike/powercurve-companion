@@ -52,6 +52,15 @@ class BluetoothManager(private val context: Context) {
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var scanRunning = false
+    private var selectingDevice = false
+    fun beginDeviceSelection() {
+        selectingDevice=true
+        restartScanning()
+    }
+    fun endDeviceSelection() {
+        selectingDevice=false
+        if(_connectionState.value==ConnectionState.Connected && _connectedDeviceType.value?.usesGATTConnection==true) stopScanning()
+    }
     private var lastScanStart = -30_000L
 
     private var bluetoothGatt: BluetoothGatt? = null
@@ -159,7 +168,7 @@ class BluetoothManager(private val context: Context) {
 
     /** Explicit user retry and silent-scan recovery; leave a healthy measurement stream alone. */
     fun restartScanning() {
-        if (_connectionState.value == ConnectionState.Connected) return
+        if (_connectionState.value == ConnectionState.Connected && !selectingDevice) return
         handler.removeCallbacks(scanRetry)
         val remaining = 8_000L - (SystemClock.elapsedRealtime() - lastScanStart)
         if (remaining > 0) {
@@ -168,8 +177,10 @@ class BluetoothManager(private val context: Context) {
         }
         AppLogger.i(TAG, "Restarting Bluetooth scan while waiting for a device")
         stopScanning()
-        whc06Service?.stop()
-        _connectionState.value = ConnectionState.Disconnected
+        if(!selectingDevice) {
+            whc06Service?.stop()
+            _connectionState.value = ConnectionState.Disconnected
+        }
         startScanning()
     }
 
@@ -183,7 +194,7 @@ class BluetoothManager(private val context: Context) {
 
     fun startScanning() {
         // Re-entering the screen must not restart the WH-C06 measurement scan.
-        if (scanRunning || _connectionState.value == ConnectionState.Connected || _connectionState.value == ConnectionState.Connecting) return
+        if (scanRunning || (!selectingDevice && (_connectionState.value == ConnectionState.Connected || _connectionState.value == ConnectionState.Connecting))) return
         if (!hasBlePermission()) {
             _connectionState.value = ConnectionState.Error("Allow Bluetooth permission in Android app settings")
             return
@@ -206,13 +217,13 @@ class BluetoothManager(private val context: Context) {
 
         val savedType = DeviceType.fromString(prefs.getString(KEY_LAST_CONNECTED_TYPE, null)) ?: _selectedDeviceType.value
         val savedAddress = lastConnectedDeviceAddress
-        if (savedAddress != null && savedType == DeviceType.WEIHENG_WHC06) {
+        if (!selectingDevice && savedAddress != null && savedType == DeviceType.WEIHENG_WHC06) {
             connect(ForceDevice(savedAddress, "WH-C06", savedType))
             return
         }
 
         _discoveredDevices.value = emptyList()
-        _connectionState.value = ConnectionState.Scanning
+        if(!selectingDevice || _connectionState.value !in listOf(ConnectionState.Connected,ConnectionState.Connecting,ConnectionState.Reconnecting)) _connectionState.value = ConnectionState.Scanning
 
         bluetoothLeScanner = bluetoothManager.adapter?.bluetoothLeScanner
 
@@ -277,7 +288,7 @@ class BluetoothManager(private val context: Context) {
                         currentList[existingIndex] = device
                     } else {
                         currentList.add(device)
-                        if (device.address == lastConnectedDeviceAddress && _connectionState.value == ConnectionState.Scanning) {
+                        if (!selectingDevice && device.address == lastConnectedDeviceAddress && _connectionState.value == ConnectionState.Scanning) {
                             connect(device)
                         }
                     }
