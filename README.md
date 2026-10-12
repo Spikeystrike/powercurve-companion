@@ -73,7 +73,7 @@ Online history refreshes also remove deleted or hidden imported sets from the of
 
 Obtain your individual developer API key and register your Dyno through the [FREZ Developer Program](https://developers.frez.app/en). In **Settings → FREZ Dyno**, enter the key and tap **Save FREZ key**, then select your **FrezDyno-…** device from the Bluetooth device list.
 
-The key is encrypted using Android Keystore and excluded from backups. It is sent only to the official FREZ coefficient endpoint, with the device serial number. Each connection requires internet access to load its calibration factor; an established measurement stream uses Bluetooth. Saving or removing the key disconnects an active FREZ connection.
+The key is encrypted using Android Keystore and excluded from backups. It is sent only to the official FREZ coefficient endpoint, with the device serial number. Each connection tries to refresh the calibration factor online and saves it per serial number. If internet access is unavailable, the last valid factor for that Dyno is used and the status indicates offline calibration. Connect each Dyno online once after this update to populate its cache. Explicit API errors and invalid responses are reported instead of silently using an old factor. Measurements stream over Bluetooth. The unloaded zero is measured afresh and is not cached. Saving or removing the key disconnects an active FREZ connection.
 
 Opening **Select Tension Source** searches across supported device types, including when a WH-C06 was previously selected or is still connected. Switching the scan may take up to eight seconds due to Android scan throttling. The API key is needed to connect, not to discover the Dyno.
 

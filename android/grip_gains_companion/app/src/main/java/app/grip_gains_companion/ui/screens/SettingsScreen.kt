@@ -340,7 +340,7 @@ fun SettingsScreen(
                     Row(verticalAlignment=Alignment.CenterVertically) {
                         Text("FREZ Dyno",modifier=Modifier.weight(1f))
                     }
-                    Text("Enter your personal developer API key from developers.frez.app. Your Dyno must be registered there. Internet access is required when connecting to load its calibration factor. The key stays encrypted on this phone and is sent only to FREZ.",style=MaterialTheme.typography.bodySmall)
+                    Text("Enter your personal developer API key from developers.frez.app. Your Dyno must be registered there. Connect online once per Dyno to save its calibration factor. Later connections refresh it online or use the saved factor when internet access is unavailable. The key stays encrypted on this phone and is sent only to FREZ.",style=MaterialTheme.typography.bodySmall)
                     OutlinedTextField(value=frezKey,onValueChange={frezKey=it},label={Text("FREZ developer API key")},singleLine=true,
                         visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),modifier=Modifier.fillMaxWidth())

@@ -21,16 +21,20 @@ class FrezDynoConnection(private val accessKey: String,private val autoTare: Boo
     private val executor=Executors.newSingleThreadExecutor()
     private var gatt: BluetoothGatt?=null
     private var closed=false
+    private lateinit var calibrationCache: FrezCalibrationCache
+    private var calibrationNote = ""
+    private fun report(message: String) = status(message + calibrationNote)
     private var protocol: FrezProtocol?=null
     private var notify: BluetoothGattCharacteristic?=null
     private var write: BluetoothGattCharacteristic?=null
     private val timeout=Runnable {fail("FREZ setup timed out. Reconnect to retry.")}
     fun connect(context: Context,device: BluetoothDevice) {
+        calibrationCache = FrezCalibrationCache(context.applicationContext)
         status("Connecting to FREZ Dyno…")
         gatt=device.connectGatt(context,false,callback,BluetoothDevice.TRANSPORT_LE)
         handler.postDelayed(timeout,30000)
     }
-    fun tare() {handler.post {if(!closed && protocol!=null) {protocol?.tare();status("Keep FREZ Dyno unloaded: zeroing 100 samples…")}}}
+    fun tare() {handler.post {if(!closed && protocol!=null) {protocol?.tare();report("Keep FREZ Dyno unloaded: zeroing 100 samples…")}}}
     fun close() {
         closed=true;handler.removeCallbacks(timeout);executor.shutdownNow()
         gatt?.disconnect();gatt?.close();gatt=null
@@ -71,7 +75,7 @@ class FrezDynoConnection(private val accessKey: String,private val autoTare: Boo
         override fun onCharacteristicWrite(g: BluetoothGatt,c: BluetoothGattCharacteristic,s: Int) = post(g) {
             if(s!=BluetoothGatt.GATT_SUCCESS) {fail("FREZ start command failed.");return@post}
             handler.removeCallbacks(timeout);connected()
-            if(autoTare) tare() else status("FREZ connected. Unload the sensor and tap Zero FREZ before measuring.")
+            if(autoTare) tare() else report("FREZ connected. Unload the sensor and tap Zero FREZ before measuring.")
         }
         override fun onCharacteristicChanged(g: BluetoothGatt,c: BluetoothGattCharacteristic,value: ByteArray) = post(g) {receive(c,value)}
         @Deprecated("Legacy Android callback")
@@ -85,21 +89,15 @@ class FrezDynoConnection(private val accessKey: String,private val autoTare: Boo
         if(result!=BluetoothGatt.GATT_SUCCESS || serial.isBlank() || serial.length>128) {fail("FREZ serial number could not be read.");return}
         status("Loading FREZ calibration factor…")
         executor.submit {
-            var connection: HttpsURLConnection?=null
             try {
-                connection=URL("https://api.frez.app/functions/v1/dyno-coefficient?serial="+URLEncoder.encode(serial,"UTF-8")).openConnection() as HttpsURLConnection
-                connection.instanceFollowRedirects=false;connection.connectTimeout=10000;connection.readTimeout=10000
-                connection.setRequestProperty("X-Frez-Access-Key",accessKey)
-                val code=connection.responseCode
-                if(code!=200) {
-                    val message=when(code) {401,403->"FREZ key rejected or device not authorized. Check your Developer Program key and registered device.";429->"FREZ request limit reached. Try again later.";else->"FREZ calibration request failed (HTTP $code)."}
-                    post(g) {fail(message)};return@submit
-                }
-                val body=connection.inputStream.bufferedReader().use {it.readText()}
-                val value=JSONObject(body).get("a")
-                require(value is Number)
-                val engine=FrezProtocol(value.toDouble())
+                val calibration = FrezCalibrationResolver(calibrationCache::read, calibrationCache::save, ::fetchCoefficient).load(serial)
+                val engine = FrezProtocol(calibration.coefficient)
                 post(g) {
+                    calibrationNote = when {
+                        calibration.offline -> " (offline: saved calibration)"
+                        !calibration.saved -> " (calibration could not be saved for offline use)"
+                        else -> ""
+                    }
                     protocol=engine
                     val c=notify!!;val descriptor=c.getDescriptor(uuid("2902"))
                     if(descriptor==null || !g.setCharacteristicNotification(c,true)) {fail("FREZ notification configuration is unavailable.");return@post}
@@ -108,16 +106,41 @@ class FrezDynoConnection(private val accessKey: String,private val autoTare: Boo
                     @Suppress("DEPRECATION")
                     if(!g.writeDescriptor(descriptor)) fail("FREZ notification setup failed.")
                 }
-            } catch(_: Exception) {post(g) {fail("FREZ calibration unavailable. Check internet access and your developer key, then reconnect.")}}
-            finally {connection?.disconnect()}
+            } catch(error: CalibrationRequestException) {
+                post(g) { fail(error.message ?: "FREZ calibration request failed.") }
+            } catch(_: java.io.IOException) {
+                post(g) { fail("No saved FREZ calibration for this device. Connect to the internet once, then reconnect.") }
+            } catch(_: Exception) {
+                post(g) { fail("FREZ calibration unavailable or invalid. Check your developer key and reconnect.") }
+            }
         }
     }
+
+    private class CalibrationRequestException(message: String): Exception(message)
+
+    private fun fetchCoefficient(serial: String): Double {
+        val connection = URL("https://api.frez.app/functions/v1/dyno-coefficient?serial=" + URLEncoder.encode(serial,"UTF-8")).openConnection() as HttpsURLConnection
+        try {
+            connection.instanceFollowRedirects=false;connection.connectTimeout=10000;connection.readTimeout=10000
+            connection.setRequestProperty("X-Frez-Access-Key",accessKey)
+            val code=connection.responseCode
+            if(code!=200) {
+                val message=when(code) {401,403->"FREZ key rejected or device not authorized. Check your Developer Program key and registered device.";429->"FREZ request limit reached. Try again later.";else->"FREZ calibration request failed (HTTP $code)."}
+                throw CalibrationRequestException(message)
+            }
+            val body=connection.inputStream.bufferedReader().use {it.readText()}
+            val value=JSONObject(body).get("a")
+            require(value is Number)
+            return value.toDouble()
+        } finally { connection.disconnect() }
+    }
+
     private fun receive(c: BluetoothGattCharacteristic,bytes: ByteArray) {
         if(c.uuid!=NOTIFY)return
         val engine=protocol ?: return
         val wasReady=engine.ready
         val samples=engine.packet(bytes)
-        if(!wasReady && engine.ready) status("FREZ Dyno ready")
+        if(!wasReady && engine.ready) report("FREZ Dyno ready")
         samples.forEach {(kg,time)->sample(kg,time)}
     }
     companion object {
