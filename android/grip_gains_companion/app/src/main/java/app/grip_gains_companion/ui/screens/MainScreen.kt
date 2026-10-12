@@ -546,9 +546,8 @@ fun MainScreen(
 
                                 val forceHistory by progressorHandler.forceHistory.collectAsState()
                                 val activeForces = remember(forceHistory, forceGraphWindow) {
-                                    val now = System.currentTimeMillis()
-                                    val cutoff = now - (forceGraphWindow * 1000L)
-                                    forceHistory.filter { it.timestamp.time >= cutoff && it.force > 2.0 }.map { it.force }
+                                    app.grip_gains_companion.service.visibleForceHistory(forceHistory, forceGraphWindow)
+                                        .filter { it.force > 2.0 }.map { it.force }
                                 }
 
                                 val mean = remember(activeForces) { if (activeForces.isNotEmpty()) StatisticsUtils.mean(activeForces) else 0.0 }

@@ -32,6 +32,7 @@ class ForceReadoutTest {
     @Test fun smoothingDoesNotChangeRawForceOrRecordedHistory() = runBlocking {
         val handler=ProgressorHandler();handler.enableCalibration=false
         handler.processSample(20.0,0)
+        kotlinx.coroutines.delay(60) // Allow the next display-history snapshot.
         handler.processSample(30.0,100000)
         assertEquals(30.0,handler.currentForce.value,0.0)
         assertEquals(30.0,handler.forceHistory.value.last().force,0.0)

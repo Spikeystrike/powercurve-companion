@@ -4,6 +4,8 @@ Android companion for [Powercurve](https://powercurve.tantaluspath.com) with Blu
 
 The large force readout uses gentle 200 ms smoothing and updates at most ten times per second. Rounded zero values always display as **0.0**, never **-0.0**. Rep detection, saved Real Force statistics and the graph continue to use the original measurements.
 
+The live force graph retains up to 60 seconds and 6,000 samples, with display snapshots limited to 20 per second. Its window follows the latest measurement using monotonic reception time, so phone-clock changes cannot hide the curve. Reception gaps remain visible, and a waiting indicator appears when samples stop. Training measurements are not throttled.
+
 ## Getting started
 
 1. Install the APK on **Android 10 or newer** and allow Bluetooth permissions. Android 10/11 also requires location services for device discovery.

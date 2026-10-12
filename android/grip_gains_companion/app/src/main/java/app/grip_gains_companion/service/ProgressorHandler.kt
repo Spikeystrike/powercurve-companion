@@ -40,6 +40,7 @@ class ProgressorHandler {
     private val _sessionStdDev = MutableStateFlow<Double?>(null)
     val sessionStdDev: StateFlow<Double?> = _sessionStdDev.asStateFlow()
 
+    private val graphHistory = ForceGraphHistory()
     private val _forceHistory = MutableStateFlow<List<ForceHistoryEntry>>(emptyList())
     val forceHistory: StateFlow<List<ForceHistoryEntry>> = _forceHistory.asStateFlow()
 
@@ -156,6 +157,7 @@ class ProgressorHandler {
      * Process a single force sample from the BLE device
      */
     suspend fun processSample(rawWeight: Double, timestamp: Long) {
+        if (!rawWeight.isFinite()) return
         lastTimestamp = timestamp
 
         // Process state transition first (may establish/update baseline)
@@ -174,11 +176,7 @@ class ProgressorHandler {
         _currentForce.value = displayWeight
         readout.sample(displayWeight,timestamp/1000)?.let {_displayForce.value=it}
 
-        // Update force history with tared value using phone's ABSOLUTE clock for butter-smooth graph scrolling!
-        val cutoff = System.currentTimeMillis() - 60_000
-        val newHistory = _forceHistory.value.filter { it.timestamp.time >= cutoff }.takeLast(5999).toMutableList()
-        newHistory.add(ForceHistoryEntry(Date(System.currentTimeMillis()), displayWeight))
-        _forceHistory.value = newHistory
+        graphHistory.add(displayWeight)?.let { _forceHistory.value = it }
     }
 
     /**
@@ -199,6 +197,7 @@ class ProgressorHandler {
     }
 
     private fun resetCommonState() {
+        graphHistory.clear()
         readout.reset();_displayForce.value=0.0
         stopOffTargetTimer()
         _state.value = ProgressorState.WaitingForSamples
