@@ -497,12 +497,12 @@ fun MainScreen(
                                 ) {
                                     if (isConnected || isReconnecting) {
                                         val forceHistory by progressorHandler.forceHistory.collectAsState()
-                                        val currentForce by progressorHandler.currentForce.collectAsState()
+                                        val currentForce by progressorHandler.displayForce.collectAsState()
                                         val state by progressorHandler.state.collectAsState()
 
                                         val displayWeight = if (useLbs) currentForce * 2.20462 else currentForce
                                         Text(
-                                            text = if(frezNeedsZero) "—" else "${String.format(java.util.Locale.US, "%.1f", displayWeight)} ${if (useLbs) "Lbs" else "Kg"}",
+                                            text = if(frezNeedsZero) "—" else "${app.grip_gains_companion.service.ForceReadout.format(displayWeight)} ${if (useLbs) "Lbs" else "Kg"}",
                                             style = MaterialTheme.typography.displayLarge.copy(
                                                 fontWeight = FontWeight.Black,
                                                 fontSize = 64.sp,

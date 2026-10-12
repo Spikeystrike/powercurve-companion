@@ -96,7 +96,7 @@ fun StatusBar(
 
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
-                                String.format("%.1f", displayForce),
+                                app.grip_gains_companion.service.ForceReadout.format(displayForce),
                                 color = if (engaged && !isOffTarget) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                                 fontSize = 48.sp,
                                 fontWeight = FontWeight.Bold,

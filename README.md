@@ -2,6 +2,8 @@
 
 Android companion for [Powercurve](https://powercurve.tantaluspath.com) with Bluetooth sensor support, a live force graph and offline training.
 
+The large force readout uses gentle 200 ms smoothing and updates at most ten times per second. Rounded zero values always display as **0.0**, never **-0.0**. Rep detection, saved Real Force statistics and the graph continue to use the original measurements.
+
 ## Getting started
 
 1. Install the APK on **Android 10 or newer** and allow Bluetooth permissions. Android 10/11 also requires location services for device discovery.

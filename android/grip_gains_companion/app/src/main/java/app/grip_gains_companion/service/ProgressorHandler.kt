@@ -24,6 +24,9 @@ class ProgressorHandler {
 
     private val _currentForce = MutableStateFlow(0.0)
     val currentForce: StateFlow<Double> = _currentForce.asStateFlow()
+    private val readout=ForceReadout()
+    private val _displayForce=MutableStateFlow(0.0)
+    val displayForce: StateFlow<Double> = _displayForce.asStateFlow()
 
     private val _calibrationTimeRemaining = MutableStateFlow(AppConstants.CALIBRATION_DURATION_MS)
     val calibrationTimeRemaining: StateFlow<Long> = _calibrationTimeRemaining.asStateFlow()
@@ -169,6 +172,7 @@ class ProgressorHandler {
 
         // Update published force with tared value
         _currentForce.value = displayWeight
+        readout.sample(displayWeight,timestamp/1000)?.let {_displayForce.value=it}
 
         // Update force history with tared value using phone's ABSOLUTE clock for butter-smooth graph scrolling!
         val cutoff = System.currentTimeMillis() - 60_000
@@ -195,6 +199,7 @@ class ProgressorHandler {
     }
 
     private fun resetCommonState() {
+        readout.reset();_displayForce.value=0.0
         stopOffTargetTimer()
         _state.value = ProgressorState.WaitingForSamples
         _calibrationTimeRemaining.value = AppConstants.CALIBRATION_DURATION_MS
