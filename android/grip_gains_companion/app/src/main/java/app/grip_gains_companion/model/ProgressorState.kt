@@ -17,13 +17,11 @@ sealed class ProgressorState {
     
     data class Gripping(
         val baselineValue: Double,
-        val startTimestamp: Long,
-        val samples: List<TimestampedSample>
+        val startTimestamp: Long
     ) : ProgressorState()
     
     data class WeightCalibration(
         val baselineValue: Double,
-        val samples: List<TimestampedSample>,
         val isHolding: Boolean
     ) : ProgressorState()
     

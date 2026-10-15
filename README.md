@@ -6,6 +6,8 @@ The large force readout uses gentle 200 ms smoothing and updates at most ten tim
 
 The live force graph retains up to 60 seconds and 6,000 samples, with display snapshots limited to 20 per second. Its window follows the latest measurement using monotonic reception time, so phone-clock changes cannot hide the curve. Reception gaps remain visible, and a waiting indicator appears when samples stop. Training measurements are not throttled.
 
+Live rep mean and population deviation are calculated incrementally. Weight-hold medians are maintained without repeatedly sorting the complete hold. Rep samples stay outside UI state and are copied once at completion, preserving the existing result data during long holds.
+
 ## Getting started
 
 1. Install the APK on **Android 10 or newer** and allow Bluetooth permissions. Android 10/11 also requires location services for device discovery.
